@@ -1,0 +1,4403 @@
+Directory structure:
+└── xaiksan1-envii/
+    ├── README.md
+    ├── api/
+    │   ├── package.json
+    │   ├── tsconfig.json
+    │   └── src/
+    │       ├── index.ts
+    │       ├── db/
+    │       │   ├── client.ts
+    │       │   ├── init.ts
+    │       │   └── schema.ts
+    │       ├── middleware/
+    │       │   └── auth.ts
+    │       └── routes/
+    │           ├── admin.ts
+    │           ├── backup.ts
+    │           └── health.ts
+    ├── cli/
+    │   ├── package.json
+    │   ├── tsconfig.json
+    │   └── src/
+    │       ├── index.ts
+    │       ├── commands/
+    │       │   ├── backup.ts
+    │       │   ├── init.ts
+    │       │   ├── list.ts
+    │       │   └── restore.ts
+    │       ├── core/
+    │       │   ├── api.ts
+    │       │   ├── config.ts
+    │       │   ├── crypto.ts
+    │       │   ├── fingerprint.ts
+    │       │   └── scanner.ts
+    │       └── utils/
+    │           ├── fs.ts
+    │           ├── logger.ts
+    │           └── prompts.ts
+    └── web/
+        ├── README.md
+        ├── eslint.config.js
+        ├── index.html
+        ├── package.json
+        ├── tsconfig.app.json
+        ├── tsconfig.json
+        ├── tsconfig.node.json
+        ├── vite.config.ts
+        └── src/
+            ├── App.tsx
+            ├── index.css
+            ├── main.tsx
+            └── components/
+                ├── Features.tsx
+                ├── Footer.tsx
+                ├── Hero.tsx
+                ├── HowItWorks.tsx
+                ├── Installation.tsx
+                └── Security.tsx
+
+================================================
+FILE: README.md
+================================================
+<p align="center">
+  <img src="web/public/logo.png" alt="Envii Logo" width="120" />
+</p>
+
+# Envii
+
+Backup and restore `.env` files across machines using a cloud backend and recovery-phrase authentication.
+
+## Features
+
+- **End-to-end encryption** - Server never sees your secrets
+- **Recovery phrase only** - No accounts, emails, or passwords
+- **Cloud-first** - Access your env files from anywhere
+- **Full restore** - Always restore complete project environments
+- **Fingerprint matching** - Automatically match projects across machines
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+
+- npm, yarn, or pnpm
+
+### Installation
+
+```bash
+# Clone the repository
+cd envii
+
+# Install CLI dependencies
+cd envii-cli
+npm install
+npm run build
+npm link
+
+# Install API dependencies (in another terminal)
+cd envii-api
+npm install
+```
+
+### Start the API Server (Development)
+
+```bash
+cd envii-api
+npm run dev
+# Server runs on http://localhost:4400
+```
+
+### Initialize Envii
+
+```bash
+envii init --dev
+```
+
+This will:
+
+1. Generate a 12-word recovery phrase (or accept an existing one)
+2. Create `~/.envii/config.json` with your vault ID and settings
+3. Set up encryption keys
+
+> ⚠️ **IMPORTANT**: Save your recovery phrase securely. It's the ONLY way to restore your backups!
+
+### Backup Your .env Files
+
+```bash
+cd ~/projects  # Navigate to your projects folder
+envii backup --dev
+```
+
+This scans all subfolders for projects (detected by `.git`, `package.json`, etc.) and backs up all `.env*` files.
+
+### Restore on Another Machine
+
+```bash
+# Initialize with your existing phrase
+envii init --dev
+
+# Navigate to projects folder
+cd ~/projects
+
+# Restore
+envii restore --dev
+```
+
+### List Backed Up Projects
+
+```bash
+envii list --dev
+```
+
+## Commands
+
+### `envii init`
+
+Initialize Envii for the current user.
+
+```bash
+envii init [--dev]
+```
+
+Options:
+
+- `--dev` - Use local API (http://localhost:4400)
+
+### `envii backup`
+
+Backup all .env files in the current directory tree.
+
+```bash
+envii backup [--dev]
+```
+
+Options:
+
+- `--dev` - Use local API
+
+### `envii restore`
+
+Restore all .env files to their projects.
+
+```bash
+envii restore [--dev] [--force]
+```
+
+Options:
+
+- `--dev` - Use local API
+- `--force` - Overwrite existing .env files
+
+### `envii list`
+
+List all backed up projects.
+
+```bash
+envii list [--dev]
+```
+
+Options:
+
+- `--dev` - Use local API
+
+## Project Structure
+
+```
+envii/
+├── envii-cli/           # CLI application
+│   ├── src/
+│   │   ├── commands/    # CLI commands
+│   │   ├── core/        # Core modules
+│   │   └── utils/       # Utility functions
+│   └── package.json
+├── envii-api/           # API server
+│   ├── src/
+│   │   ├── routes/      # API routes
+│   │   ├── db/          # Database schema
+│   │   └── middleware/  # Auth middleware
+│   └── package.json
+└── spec.md              # Full specification
+```
+
+## How It Works
+
+### Recovery Phrase
+
+- 12-word BIP-39 mnemonic phrase
+- Used to derive encryption keys and vault ID
+- Never stored locally or transmitted to server
+- Lost phrase = lost access (no recovery possible)
+
+### Project Detection
+
+Projects are detected by the presence of:
+
+- `.git` folder
+- `package.json`
+- `pyproject.toml`
+- `go.mod`
+- `Cargo.toml`
+- `composer.json`
+
+### Fingerprinting
+
+Projects are matched across machines using fingerprints derived from:
+
+1. Git remote URL (highest priority)
+2. package.json name
+3. Folder name (fallback)
+
+### Encryption
+
+- **Algorithm**: AES-256-GCM
+- **Key Derivation**: PBKDF2 with 600,000 iterations
+- **Compression**: gzip before encryption
+- **IV**: Random 12 bytes per backup
+- **Auth Tag**: 16 bytes for integrity verification
+
+### Backup Format
+
+```json
+{
+  "version": 1,
+  "createdAt": "ISO-8601 timestamp",
+  "deviceId": "uuid",
+  "projects": [
+    {
+      "id": "uuid",
+      "name": "project-name",
+      "git": "git remote url or null",
+      "fingerprint": "sha256 hash",
+      "path": "/original/path",
+      "envs": [
+        {
+          "filename": ".env",
+          "checksum": "sha256 of content",
+          "content": "actual content"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## API Endpoints
+
+### `GET /health`
+
+Health check endpoint.
+
+```json
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+
+### `POST /backup`
+
+Create a new backup.
+
+Headers:
+
+```
+Authorization: Bearer <vault_id>
+Content-Type: application/json
+```
+
+Body:
+
+```json
+{
+  "blob": "base64-encoded-encrypted-data",
+  "deviceId": "uuid"
+}
+```
+
+### `GET /backup/latest`
+
+Get the latest backup.
+
+Headers:
+
+```
+Authorization: Bearer <vault_id>
+```
+
+### `GET /backups`
+
+List all backups (metadata only).
+
+Headers:
+
+```
+Authorization: Bearer <vault_id>
+```
+
+Query params:
+
+- `limit` (default: 10, max: 100)
+- `offset` (default: 0)
+
+### Admin Endpoints
+
+Admin endpoints require the `ADMIN_API_KEY` environment variable to be set.
+
+#### `GET /admin/analytics`
+
+Get analytics summary.
+
+Headers:
+
+```
+Authorization: Bearer <admin_api_key>
+```
+
+Response:
+
+```json
+{
+  "summary": {
+    "totalVaults": 10,
+    "totalBackups": 25,
+    "totalEvents": 100,
+    "totalStorageBytes": 1048576,
+    "eventsToday": 5,
+    "backupsToday": 2
+  },
+  "eventCountsByType": [
+    { "event_type": "backup.created", "count": 50 },
+    { "event_type": "backup.downloaded", "count": 50 }
+  ]
+}
+```
+
+#### `GET /admin/events`
+
+List events with optional filtering.
+
+Headers:
+
+```
+Authorization: Bearer <admin_api_key>
+```
+
+Query params:
+
+- `type` - Filter by event type (backup.created, backup.downloaded, vault.created)
+- `vaultId` - Filter by vault ID
+- `limit` (default: 50, max: 100)
+- `offset` (default: 0)
+
+Response:
+
+````json
+{
+  "events": [
+    {
+      "id": 1,
+      "event_type": "backup.created",
+      "vault_id": "abc123...",
+      "backup_id": "bkp_xyz789",
+      "metadata": { "sizeBytes": 1024 },
+      "ip_address": "192.168.1.1",
+      "user_agent": "node-fetch/1.0",
+      "created_at": "2026-01-17T12:00:00Z"
+    }
+  ],
+  "total": 100
+}
+
+## Security
+
+### What's Protected
+
+Server never sees recovery phrase
+Server never sees plaintext .env contents
+Server never sees encryption keys
+All backups encrypted with AES-256-GCM
+Each backup has unique IV
+Authentication tags prevent tampering
+
+### What's NOT Protected
+
+Client-side malware
+Recovery phrase compromise
+Physical access to unlocked device
+
+## Development
+
+### Running Tests
+
+```bash
+# CLI tests
+cd envii-cli
+npm test
+
+# API tests
+cd envii-api
+npm test
+````
+
+### Building for Production
+
+```bash
+# Build CLI
+cd envii-cli
+npm run build
+
+# Build API
+cd envii-api
+npm run build
+```
+
+## Configuration
+
+### CLI Config Location
+
+```
+~/.envii/config.json
+```
+
+### API Environment Variables
+
+```bash
+PORT=4400                    # Server port
+DATABASE_URL=postgresql://...  # PostgreSQL connection string
+ADMIN_API_KEY=your-secret-key  # Admin API authentication key
+```
+
+### Database Setup
+
+Envii uses PostgreSQL for data storage. Set the `DATABASE_URL` environment variable in `api/.env`:
+
+```bash
+DATABASE_URL=postgresql://user:password@host:port/database
+ADMIN_API_KEY=your-admin-secret-key
+```
+
+Initialize the database schema:
+
+```bash
+cd api
+npm run db:init
+```
+
+## License
+
+MIT
+
+
+
+================================================
+FILE: api/package.json
+================================================
+{
+  "name": "envii-api",
+  "version": "1.0.0",
+  "description": "Envii API server for storing encrypted .env backups",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest",
+    "db:init": "tsx src/db/init.ts"
+  },
+  "keywords": [
+    "envii",
+    "api",
+    "hono",
+    "postgres"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@hono/node-server": "^1.8.0",
+    "dotenv": "^17.2.3",
+    "hono": "^4.0.8",
+    "pg": "^8.11.3",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.16",
+    "@types/pg": "^8.11.0",
+    "@types/uuid": "^9.0.8",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+
+
+================================================
+FILE: api/tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+
+
+================================================
+FILE: api/src/index.ts
+================================================
+import { serve } from "@hono/node-server";
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { health } from "./routes/health.js";
+import { backup, backups } from "./routes/backup.js";
+import { admin } from "./routes/admin.js";
+import { initDb } from "./db/client.js";
+import { initializeSchema } from "./db/schema.js";
+
+async function main() {
+  // Initialize database
+  await initDb();
+  await initializeSchema();
+
+  // Create Hono app
+  const app = new Hono();
+
+  // Middleware
+  app.use("*", logger());
+  app.use("*", cors());
+
+  // Routes
+  app.route("/health", health);
+  app.route("/backup", backup);
+  app.route("/backups", backups);
+  app.route("/admin", admin);
+
+  // Root route
+  app.get("/", (c) => {
+    return c.json({
+      name: "Envii API",
+      version: "1.0.0",
+      endpoints: {
+        health: "GET /health",
+        backup: {
+          create: "POST /backup",
+          latest: "GET /backup/latest",
+          list: "GET /backups",
+        },
+        admin: {
+          analytics: "GET /admin/analytics",
+          events: "GET /admin/events",
+        },
+      },
+    });
+  });
+
+  // 404 handler
+  app.notFound((c) => {
+    return c.json({ error: "Not found" }, 404);
+  });
+
+  // Error handler
+  app.onError((err, c) => {
+    console.error("Unhandled error:", err);
+    return c.json({ error: "Internal server error" }, 500);
+  });
+
+  // Start server
+  const port = parseInt(process.env.PORT || "4400");
+
+  console.log(`
+╔═══════════════════════════════════════╗
+║           Envii API Server            ║
+╚═══════════════════════════════════════╝
+
+🚀 Server starting on http://localhost:${port}
+
+Endpoints:
+  GET  /health         Health check
+  POST /backup         Create backup
+  GET  /backup/latest  Get latest backup
+  GET  /backups        List all backups
+`);
+
+  serve({
+    fetch: app.fetch,
+    port,
+  });
+}
+
+main().catch(console.error);
+
+
+
+================================================
+FILE: api/src/db/client.ts
+================================================
+import pg from "pg";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required");
+}
+
+let pool: pg.Pool | null = null;
+
+export async function initDb(): Promise<pg.Pool> {
+  if (pool) return pool;
+
+  pool = new pg.Pool({
+    connectionString: DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false,
+    },
+  });
+
+  // Test connection
+  const client = await pool.connect();
+  client.release();
+
+  return pool;
+}
+
+export function getDb(): pg.Pool {
+  if (!pool) {
+    throw new Error("Database not initialized. Call initDb() first.");
+  }
+  return pool;
+}
+
+export async function closeDb(): Promise<void> {
+  if (pool) {
+    await pool.end();
+    pool = null;
+  }
+}
+
+export { DATABASE_URL };
+
+
+
+================================================
+FILE: api/src/db/init.ts
+================================================
+import { initDb, closeDb, DATABASE_URL } from "./client.js";
+import { initializeSchema } from "./schema.js";
+
+async function main() {
+  console.log(`Connecting to PostgreSQL database...`);
+  console.log(`Database URL: ${DATABASE_URL?.replace(/:[^:@]+@/, ":****@")}`);
+  await initDb();
+  await initializeSchema();
+  await closeDb();
+  console.log("Done!");
+}
+
+main().catch(console.error);
+
+
+
+================================================
+FILE: api/src/db/schema.ts
+================================================
+import { getDb } from "./client.js";
+
+export async function initializeSchema(): Promise<void> {
+  const db = getDb();
+
+  // Create vaults table
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS vaults (
+      id TEXT PRIMARY KEY,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      last_backup_at TIMESTAMP
+    )
+  `);
+
+  // Create backups table
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS backups (
+      id TEXT PRIMARY KEY,
+      vault_id TEXT NOT NULL,
+      blob BYTEA NOT NULL,
+      size_bytes INTEGER NOT NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      device_id TEXT,
+      FOREIGN KEY (vault_id) REFERENCES vaults(id)
+    )
+  `);
+
+  // Create indexes
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_backups_vault_id ON backups(vault_id)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_backups_created_at ON backups(created_at)
+  `);
+
+  // Create events table for analytics
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS events (
+      id SERIAL PRIMARY KEY,
+      event_type TEXT NOT NULL,
+      vault_id TEXT,
+      backup_id TEXT,
+      metadata JSONB,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  // Create indexes for events
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_events_vault_id ON events(vault_id)
+  `);
+
+  console.log("✓ Database schema initialized");
+}
+
+// Vault operations
+export async function createVault(id: string): Promise<void> {
+  const db = getDb();
+  await db.query(
+    `INSERT INTO vaults (id, created_at) VALUES ($1, NOW()) ON CONFLICT (id) DO NOTHING`,
+    [id],
+  );
+}
+
+export async function updateVaultLastBackup(id: string): Promise<void> {
+  const db = getDb();
+  await db.query(`UPDATE vaults SET last_backup_at = NOW() WHERE id = $1`, [
+    id,
+  ]);
+}
+
+export async function getVault(
+  id: string,
+): Promise<
+  { id: string; created_at: string; last_backup_at: string | null } | undefined
+> {
+  const db = getDb();
+  const result = await db.query("SELECT * FROM vaults WHERE id = $1", [id]);
+  if (result.rows.length > 0) {
+    return result.rows[0] as {
+      id: string;
+      created_at: string;
+      last_backup_at: string | null;
+    };
+  }
+  return undefined;
+}
+
+// Backup operations
+export interface BackupRecord {
+  id: string;
+  vault_id: string;
+  blob: Buffer;
+  size_bytes: number;
+  created_at: string;
+  device_id: string | null;
+}
+
+export async function createBackup(
+  id: string,
+  vaultId: string,
+  blob: Buffer,
+  deviceId?: string,
+): Promise<BackupRecord> {
+  const db = getDb();
+
+  // Ensure vault exists
+  await createVault(vaultId);
+
+  // Insert backup
+  await db.query(
+    `INSERT INTO backups (id, vault_id, blob, size_bytes, device_id, created_at)
+     VALUES ($1, $2, $3, $4, $5, NOW())`,
+    [id, vaultId, blob, blob.length, deviceId || null],
+  );
+
+  // Update vault last_backup_at
+  await updateVaultLastBackup(vaultId);
+
+  // Return the created backup
+  return (await getBackupById(id))!;
+}
+
+export async function getBackupById(
+  id: string,
+): Promise<BackupRecord | undefined> {
+  const db = getDb();
+  const result = await db.query(
+    "SELECT id, vault_id, blob, size_bytes, created_at, device_id FROM backups WHERE id = $1",
+    [id],
+  );
+  if (result.rows.length > 0) {
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      vault_id: row.vault_id,
+      blob: row.blob,
+      size_bytes: row.size_bytes,
+      created_at: row.created_at,
+      device_id: row.device_id,
+    };
+  }
+  return undefined;
+}
+
+export async function getLatestBackup(
+  vaultId: string,
+): Promise<BackupRecord | undefined> {
+  const db = getDb();
+  const result = await db.query(
+    `
+    SELECT id, vault_id, blob, size_bytes, created_at, device_id FROM backups
+    WHERE vault_id = $1
+    ORDER BY created_at DESC
+    LIMIT 1
+  `,
+    [vaultId],
+  );
+  if (result.rows.length > 0) {
+    const row = result.rows[0];
+    return {
+      id: row.id,
+      vault_id: row.vault_id,
+      blob: row.blob,
+      size_bytes: row.size_bytes,
+      created_at: row.created_at,
+      device_id: row.device_id,
+    };
+  }
+  return undefined;
+}
+
+export interface BackupMetadata {
+  id: string;
+  created_at: string;
+  size_bytes: number;
+  device_id: string | null;
+}
+
+export async function listBackups(
+  vaultId: string,
+  limit = 10,
+  offset = 0,
+): Promise<{ backups: BackupMetadata[]; total: number }> {
+  const db = getDb();
+
+  // Get total count
+  const countResult = await db.query(
+    "SELECT COUNT(*) as count FROM backups WHERE vault_id = $1",
+    [vaultId],
+  );
+  const total = parseInt(countResult.rows[0].count, 10);
+
+  // Get backups
+  const result = await db.query(
+    `
+    SELECT id, created_at, size_bytes, device_id
+    FROM backups
+    WHERE vault_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2 OFFSET $3
+  `,
+    [vaultId, limit, offset],
+  );
+
+  return { backups: result.rows as BackupMetadata[], total };
+}
+
+// Event types for analytics
+export type EventType =
+  | "backup.created"
+  | "backup.downloaded"
+  | "vault.created"
+  | "api.request";
+
+export interface EventRecord {
+  id: number;
+  event_type: EventType;
+  vault_id: string | null;
+  backup_id: string | null;
+  metadata: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
+export async function logEvent(
+  eventType: EventType,
+  options: {
+    vaultId?: string;
+    backupId?: string;
+    metadata?: Record<string, unknown>;
+    ipAddress?: string;
+    userAgent?: string;
+  } = {},
+): Promise<void> {
+  const db = getDb();
+  await db.query(
+    `INSERT INTO events (event_type, vault_id, backup_id, metadata, ip_address, user_agent, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+    [
+      eventType,
+      options.vaultId || null,
+      options.backupId || null,
+      options.metadata ? JSON.stringify(options.metadata) : null,
+      options.ipAddress || null,
+      options.userAgent || null,
+    ],
+  );
+}
+
+export interface AnalyticsSummary {
+  totalVaults: number;
+  totalBackups: number;
+  totalEvents: number;
+  totalStorageBytes: number;
+  eventsToday: number;
+  backupsToday: number;
+}
+
+export async function getAnalyticsSummary(): Promise<AnalyticsSummary> {
+  const db = getDb();
+
+  const [vaults, backups, events, storage, eventsToday, backupsToday] =
+    await Promise.all([
+      db.query("SELECT COUNT(*) as count FROM vaults"),
+      db.query("SELECT COUNT(*) as count FROM backups"),
+      db.query("SELECT COUNT(*) as count FROM events"),
+      db.query("SELECT COALESCE(SUM(size_bytes), 0) as total FROM backups"),
+      db.query(
+        "SELECT COUNT(*) as count FROM events WHERE created_at >= CURRENT_DATE",
+      ),
+      db.query(
+        "SELECT COUNT(*) as count FROM backups WHERE created_at >= CURRENT_DATE",
+      ),
+    ]);
+
+  return {
+    totalVaults: parseInt(vaults.rows[0].count, 10),
+    totalBackups: parseInt(backups.rows[0].count, 10),
+    totalEvents: parseInt(events.rows[0].count, 10),
+    totalStorageBytes: parseInt(storage.rows[0].total, 10),
+    eventsToday: parseInt(eventsToday.rows[0].count, 10),
+    backupsToday: parseInt(backupsToday.rows[0].count, 10),
+  };
+}
+
+export interface EventsQuery {
+  eventType?: EventType;
+  vaultId?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export async function getEvents(
+  query: EventsQuery = {},
+): Promise<{ events: EventRecord[]; total: number }> {
+  const db = getDb();
+  const { eventType, vaultId, limit = 50, offset = 0 } = query;
+
+  let whereClause = "";
+  const params: (string | number)[] = [];
+  let paramIndex = 1;
+
+  if (eventType) {
+    whereClause += ` WHERE event_type = $${paramIndex++}`;
+    params.push(eventType);
+  }
+
+  if (vaultId) {
+    whereClause += whereClause ? " AND" : " WHERE";
+    whereClause += ` vault_id = $${paramIndex++}`;
+    params.push(vaultId);
+  }
+
+  // Get total count
+  const countResult = await db.query(
+    `SELECT COUNT(*) as count FROM events${whereClause}`,
+    params,
+  );
+  const total = parseInt(countResult.rows[0].count, 10);
+
+  // Get events
+  const result = await db.query(
+    `SELECT id, event_type, vault_id, backup_id, metadata, ip_address, user_agent, created_at
+     FROM events${whereClause}
+     ORDER BY created_at DESC
+     LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
+    [...params, limit, offset],
+  );
+
+  return { events: result.rows as EventRecord[], total };
+}
+
+export interface EventCountByType {
+  event_type: string;
+  count: number;
+}
+
+export async function getEventCountsByType(
+  days = 7,
+): Promise<EventCountByType[]> {
+  const db = getDb();
+  const result = await db.query(
+    `SELECT event_type, COUNT(*) as count
+     FROM events
+     WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+     GROUP BY event_type
+     ORDER BY count DESC`,
+    [days],
+  );
+  return result.rows.map((row) => ({
+    event_type: row.event_type,
+    count: parseInt(row.count, 10),
+  }));
+}
+
+
+
+================================================
+FILE: api/src/middleware/auth.ts
+================================================
+import { Context, Next } from 'hono';
+
+/**
+ * Extract vault ID from Authorization header
+ * Format: Bearer <vault_id>
+ */
+export function extractVaultId(authHeader: string | undefined): string | null {
+  if (!authHeader) {
+    return null;
+  }
+
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return null;
+  }
+
+  const vaultId = parts[1];
+
+  // Validate vault ID format (should be a hex string from SHA-256)
+  if (!/^[a-f0-9]{64}$/i.test(vaultId)) {
+    return null;
+  }
+
+  return vaultId;
+}
+
+/**
+ * Authentication middleware
+ * Extracts vault ID from Authorization header and adds it to context
+ */
+export async function authMiddleware(c: Context, next: Next) {
+  const authHeader = c.req.header('Authorization');
+  const vaultId = extractVaultId(authHeader);
+
+  if (!vaultId) {
+    return c.json(
+      {
+        error: 'Unauthorized',
+        message: 'Missing or invalid Authorization header. Expected: Bearer <vault_id>',
+      },
+      401
+    );
+  }
+
+  // Add vault ID to context
+  c.set('vaultId', vaultId);
+
+  await next();
+}
+
+// Type augmentation for Hono context
+declare module 'hono' {
+  interface ContextVariableMap {
+    vaultId: string;
+  }
+}
+
+
+
+================================================
+FILE: api/src/routes/admin.ts
+================================================
+import { Hono } from "hono";
+import { Context, Next } from "hono";
+import {
+  getAnalyticsSummary,
+  getEvents,
+  getEventCountsByType,
+  EventType,
+} from "../db/schema.js";
+
+/**
+ * Admin authentication middleware
+ * Requires ADMIN_API_KEY environment variable to be set
+ * Format: Bearer <admin_api_key>
+ */
+export async function adminAuthMiddleware(c: Context, next: Next) {
+  const adminKey = process.env.ADMIN_API_KEY;
+
+  if (!adminKey) {
+    return c.json({ error: "Admin API not configured" }, 503);
+  }
+
+  const authHeader = c.req.header("Authorization");
+
+  if (!authHeader) {
+    return c.json(
+      { error: "Unauthorized", message: "Missing Authorization header" },
+      401,
+    );
+  }
+
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0] !== "Bearer" || parts[1] !== adminKey) {
+    return c.json(
+      { error: "Unauthorized", message: "Invalid admin API key" },
+      401,
+    );
+  }
+
+  await next();
+}
+
+const admin = new Hono();
+
+// All admin routes require admin authentication
+admin.use("/*", adminAuthMiddleware);
+
+/**
+ * GET /admin/analytics
+ * Get analytics summary
+ */
+admin.get("/analytics", async (c) => {
+  try {
+    const summary = await getAnalyticsSummary();
+    const eventCounts = await getEventCountsByType(7);
+
+    return c.json({
+      summary,
+      eventCountsByType: eventCounts,
+    });
+  } catch (error) {
+    console.error("Error fetching analytics:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+/**
+ * GET /admin/events
+ * List events with optional filtering
+ */
+admin.get("/events", async (c) => {
+  try {
+    const eventType = c.req.query("type") as EventType | undefined;
+    const vaultId = c.req.query("vaultId");
+    const limit = Math.min(parseInt(c.req.query("limit") || "50"), 100);
+    const offset = parseInt(c.req.query("offset") || "0");
+
+    const result = await getEvents({ eventType, vaultId, limit, offset });
+
+    return c.json(result);
+  } catch (error) {
+    console.error("Error fetching events:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+export { admin };
+
+
+
+================================================
+FILE: api/src/routes/backup.ts
+================================================
+import { Hono } from "hono";
+import { v4 as uuidv4 } from "uuid";
+import { authMiddleware } from "../middleware/auth.js";
+import {
+  createBackup,
+  getLatestBackup,
+  listBackups,
+  logEvent,
+} from "../db/schema.js";
+
+const backup = new Hono();
+
+// All routes require authentication
+backup.use("/*", authMiddleware);
+
+// Max backup size: 10MB
+const MAX_BACKUP_SIZE = 10 * 1024 * 1024;
+
+/**
+ * POST /backup
+ * Create a new backup
+ */
+backup.post("/", async (c) => {
+  const vaultId = c.get("vaultId");
+
+  try {
+    const body = await c.req.json<{ blob: string; deviceId?: string }>();
+
+    if (!body.blob) {
+      return c.json({ error: "Missing blob field" }, 400);
+    }
+
+    // Decode base64 blob
+    const blobBuffer = Buffer.from(body.blob, "base64");
+
+    // Check size limit
+    if (blobBuffer.length > MAX_BACKUP_SIZE) {
+      return c.json(
+        {
+          error: "Payload too large",
+          message: `Backup size ${blobBuffer.length} exceeds maximum of ${MAX_BACKUP_SIZE} bytes`,
+        },
+        413,
+      );
+    }
+
+    // Generate backup ID
+    const backupId = `bkp_${uuidv4().replace(/-/g, "").substring(0, 16)}`;
+
+    // Store backup
+    const record = await createBackup(
+      backupId,
+      vaultId,
+      blobBuffer,
+      body.deviceId,
+    );
+
+    // Log event
+    await logEvent("backup.created", {
+      vaultId,
+      backupId: record.id,
+      metadata: { sizeBytes: record.size_bytes, deviceId: body.deviceId },
+      ipAddress: c.req.header("x-forwarded-for") || c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
+
+    return c.json(
+      {
+        id: record.id,
+        vaultId: record.vault_id,
+        createdAt: record.created_at,
+        sizeBytes: record.size_bytes,
+      },
+      201,
+    );
+  } catch (error) {
+    console.error("Error creating backup:", error);
+
+    if (error instanceof SyntaxError) {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+/**
+ * GET /backup/latest
+ * Get the latest backup for the authenticated vault
+ */
+backup.get("/latest", async (c) => {
+  const vaultId = c.get("vaultId");
+
+  try {
+    const record = await getLatestBackup(vaultId);
+
+    if (!record) {
+      return c.json({ error: "No backups found" }, 404);
+    }
+
+    // Convert Uint8Array to base64
+    const blobBase64 = Buffer.from(record.blob).toString("base64");
+
+    // Log event
+    await logEvent("backup.downloaded", {
+      vaultId,
+      backupId: record.id,
+      ipAddress: c.req.header("x-forwarded-for") || c.req.header("x-real-ip"),
+      userAgent: c.req.header("user-agent"),
+    });
+
+    return c.json({
+      id: record.id,
+      blob: blobBase64,
+      createdAt: record.created_at,
+      deviceId: record.device_id,
+    });
+  } catch (error) {
+    console.error("Error fetching latest backup:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+export { backup };
+
+/**
+ * Backups list endpoint (separate route group for /backups)
+ */
+const backups = new Hono();
+
+backups.use("/*", authMiddleware);
+
+/**
+ * GET /backups
+ * List all backups for the authenticated vault
+ */
+backups.get("/", async (c) => {
+  const vaultId = c.get("vaultId");
+
+  try {
+    const limit = Math.min(parseInt(c.req.query("limit") || "10"), 100);
+    const offset = parseInt(c.req.query("offset") || "0");
+
+    const result = await listBackups(vaultId, limit, offset);
+
+    return c.json({
+      backups: result.backups.map((b) => ({
+        id: b.id,
+        createdAt: b.created_at,
+        sizeBytes: b.size_bytes,
+        deviceId: b.device_id,
+      })),
+      total: result.total,
+    });
+  } catch (error) {
+    console.error("Error listing backups:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+export { backups };
+
+
+
+================================================
+FILE: api/src/routes/health.ts
+================================================
+import { Hono } from 'hono';
+
+const health = new Hono();
+
+health.get('/', (c) => {
+  return c.json({
+    status: 'ok',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
+export { health };
+
+
+
+================================================
+FILE: cli/package.json
+================================================
+{
+  "name": "envii-cli",
+  "version": "0.0.4",
+  "description": "Backup and restore .env files across machines with recovery-phrase authentication",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "envii": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest"
+  },
+  "keywords": [
+    "env",
+    "environment",
+    "backup",
+    "restore",
+    "cli",
+    "encryption"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "argon2": "^0.31.2",
+    "bip39": "^3.1.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "inquirer": "^9.2.15",
+    "ora": "^8.0.1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^20.11.16",
+    "@types/sql.js": "^1.4.9",
+    "@types/uuid": "^9.0.8",
+    "typescript": "^5.3.3",
+    "vitest": "^1.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+
+
+================================================
+FILE: cli/tsconfig.json
+================================================
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
+
+
+
+================================================
+FILE: cli/src/index.ts
+================================================
+#!/usr/bin/env node
+import { Command } from "commander";
+import { initCommand } from "./commands/init.js";
+import { backupCommand } from "./commands/backup.js";
+import { restoreCommand } from "./commands/restore.js";
+import { listCommand } from "./commands/list.js";
+
+const program = new Command();
+
+program
+  .name("envii")
+  .description(
+    "Backup and restore .env files across machines with recovery-phrase authentication",
+  )
+  .version("0.0.2");
+
+program
+  .command("init")
+  .description("Initialize Envii for the current user")
+  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .action(initCommand);
+
+program
+  .command("backup")
+  .description("Backup all .env files in the current directory tree")
+  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .action(backupCommand);
+
+program
+  .command("restore")
+  .description("Restore all .env files to their projects")
+  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .option("--force", "Overwrite existing .env files")
+  .action(restoreCommand);
+
+program
+  .command("list")
+  .description("List all backed up projects")
+  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .action(listCommand);
+
+program.parse();
+
+
+
+================================================
+FILE: cli/src/commands/backup.ts
+================================================
+import chalk from "chalk";
+import { loadConfig } from "../core/config.js";
+import { createApiClient } from "../core/api.js";
+import { scanDirectory, Project } from "../core/scanner.js";
+import { deriveKey, encryptBackup, getSizes } from "../core/crypto.js";
+import { logger } from "../utils/logger.js";
+import { formatBytes } from "../utils/fs.js";
+import { inputRecoveryPhrase } from "../utils/prompts.js";
+
+interface BackupOptions {
+  dev?: boolean;
+}
+
+interface BackupBlob {
+  version: number;
+  createdAt: string;
+  deviceId: string;
+  projects: {
+    id: string;
+    name: string;
+    git: string | null;
+    fingerprint: string;
+    path: string;
+    envs: {
+      filename: string;
+      checksum: string;
+      content: string;
+    }[];
+  }[];
+}
+
+export async function backupCommand(options: BackupOptions): Promise<void> {
+  // Load config
+  const config = await loadConfig();
+  if (!config) {
+    logger.error("Envii is not initialized. Run `envii init` first.");
+    process.exit(1);
+  }
+
+  logger.header("Envii Backup");
+
+  // Get recovery phrase for encryption
+  logger.info("Enter your recovery phrase to encrypt the backup:\n");
+  const phrase = await inputRecoveryPhrase();
+
+  // Derive encryption key
+  const spinner = logger.spinner("Deriving encryption key...");
+  const key = await deriveKey(phrase, config.salt);
+  spinner.succeed("Encryption key derived");
+
+  // Scan for projects
+  const scanSpinner = logger.spinner("Scanning for projects...");
+  const cwd = process.cwd();
+  const { projects, totalEnvFiles } = await scanDirectory(cwd);
+
+  if (projects.length === 0) {
+    scanSpinner.fail("No projects found");
+    logger.newline();
+    logger.info("Make sure you're in a directory containing projects with:");
+    logger.dim("  - .git folder");
+    logger.dim("  - package.json");
+    logger.dim("  - pyproject.toml");
+    logger.dim("  - go.mod");
+    logger.dim("  - Cargo.toml");
+    logger.dim("  - composer.json");
+    process.exit(1);
+  }
+
+  scanSpinner.succeed(
+    `Found ${projects.length} project${projects.length === 1 ? "" : "s"}`,
+  );
+  logger.newline();
+
+  // Display projects found
+  const projectsWithEnvs = projects.filter((p) => p.envs.length > 0);
+  const projectsWithoutEnvs = projects.filter((p) => p.envs.length === 0);
+
+  for (const project of projects) {
+    logger.projectItem(project.name, project.envs.length, project.git);
+  }
+
+  logger.newline();
+  logger.log(
+    `Total: ${chalk.bold(totalEnvFiles)} environment file${totalEnvFiles === 1 ? "" : "s"}`,
+  );
+
+  if (totalEnvFiles === 0) {
+    logger.newline();
+    logger.warn("No .env files found to backup.");
+    logger.info("Nothing to do.");
+    return;
+  }
+
+  // Build backup blob
+  const blob: BackupBlob = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    deviceId: config.deviceId,
+    projects: projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      git: p.git,
+      fingerprint: p.fingerprint,
+      path: p.path,
+      envs: p.envs,
+    })),
+  };
+
+  const jsonData = JSON.stringify(blob);
+  const { original, compressed } = await getSizes(jsonData);
+
+  logger.log(
+    `Size: ${formatBytes(original)} (compressed: ${formatBytes(compressed)})`,
+  );
+  logger.newline();
+
+  // Encrypt and upload
+  const encryptSpinner = logger.spinner("Encrypting and uploading...");
+
+  try {
+    const encryptedBlob = await encryptBackup(jsonData, key, config.salt);
+
+    // Upload to API
+    const api = createApiClient(config, options.dev);
+    const result = await api.uploadBackup(encryptedBlob, config.deviceId);
+
+    encryptSpinner.succeed("Backup complete");
+    logger.newline();
+
+    logger.success(`Backup ID: ${chalk.bold(result.id)}`);
+    logger.dim(`Timestamp: ${new Date(result.createdAt).toLocaleString()}`);
+
+    if (options.dev) {
+      logger.newline();
+      logger.dim("(Using local development API)");
+    }
+  } catch (error) {
+    encryptSpinner.fail("Backup failed");
+    logger.newline();
+
+    if (error instanceof Error) {
+      logger.error(error.message);
+
+      if (error.message.includes("fetch")) {
+        logger.newline();
+        logger.info("Could not connect to the API server.");
+        if (options.dev) {
+          logger.dim(
+            "Make sure the local API is running: cd envii-api && npm run dev",
+          );
+        }
+      }
+    }
+
+    process.exit(1);
+  }
+
+  logger.newline();
+}
+
+
+
+================================================
+FILE: cli/src/commands/init.ts
+================================================
+import chalk from 'chalk';
+import {
+  configExists,
+  loadConfig,
+  saveConfig,
+  createConfig,
+} from '../core/config.js';
+import {
+  generateRecoveryPhrase,
+  validateRecoveryPhrase,
+  generateVaultId,
+  generateSalt,
+} from '../core/crypto.js';
+import { logger } from '../utils/logger.js';
+import {
+  confirmPhrase,
+  hasExistingPhrase,
+  inputRecoveryPhrase,
+  confirmOverwrite,
+} from '../utils/prompts.js';
+
+interface InitOptions {
+  dev?: boolean;
+}
+
+export async function initCommand(options: InitOptions): Promise<void> {
+  logger.log(chalk.bold.cyan('\nWelcome to Envii! 🔐\n'));
+
+  // Check if config already exists
+  if (await configExists()) {
+    const existingConfig = await loadConfig();
+    if (existingConfig) {
+      logger.warn('Envii is already initialized.');
+      logger.dim(`Vault ID: ${existingConfig.vaultId.substring(0, 16)}...`);
+      logger.newline();
+
+      const overwrite = await confirmOverwrite();
+      if (!overwrite) {
+        logger.info('Initialization cancelled.');
+        return;
+      }
+    }
+  }
+
+  let phrase: string;
+  let isNewPhrase = false;
+
+  // Ask if user has existing phrase
+  const hasPhrase = await hasExistingPhrase();
+
+  if (hasPhrase) {
+    // User has existing phrase
+    phrase = await inputRecoveryPhrase();
+
+    // Validate phrase format
+    if (!validateRecoveryPhrase(phrase)) {
+      logger.error('Invalid recovery phrase. Please check your phrase and try again.');
+      logger.dim('The phrase must be exactly 12 valid BIP-39 words.');
+      process.exit(1);
+    }
+  } else {
+    // Generate new phrase
+    logger.info('Generating your recovery phrase...\n');
+    phrase = generateRecoveryPhrase();
+    isNewPhrase = true;
+
+    // Display phrase prominently
+    logger.box(
+      [
+        chalk.bold.yellow('  ⚠️  SAVE THIS PHRASE SECURELY ⚠️'),
+        '',
+        chalk.white.bold(`  ${phrase}`),
+        '',
+        chalk.dim('  This phrase is the ONLY way to restore your backups.'),
+        chalk.dim('  If you lose it, your data is GONE FOREVER.'),
+        '',
+        chalk.dim('  Write it down. Store it safely. Never share it.'),
+      ],
+      'warning'
+    );
+
+    logger.newline();
+
+    // Confirm user has saved phrase
+    const confirmed = await confirmPhrase();
+    if (!confirmed) {
+      logger.error('You must save your recovery phrase before continuing.');
+      logger.info('Run `envii init` again when you\'re ready.');
+      process.exit(1);
+    }
+  }
+
+  // Generate vault ID and salt
+  const vaultId = generateVaultId(phrase);
+  const salt = generateSalt();
+
+  // Create and save config
+  const config = createConfig(vaultId, salt, options.dev ?? false);
+  await saveConfig(config);
+
+  // Success message
+  logger.newline();
+  logger.success('Envii initialized successfully!');
+  logger.newline();
+  logger.dim(`Vault ID: ${vaultId.substring(0, 16)}...`);
+  logger.dim(`Device ID: ${config.deviceId}`);
+  logger.dim(`API URL: ${config.apiUrl}`);
+
+  if (options.dev) {
+    logger.newline();
+    logger.info(chalk.yellow('Development mode enabled - using local API'));
+  }
+
+  if (isNewPhrase) {
+    logger.newline();
+    logger.warn('Remember: Your recovery phrase is NOT stored anywhere.');
+    logger.warn('You\'ll need it to restore backups on other devices.');
+  }
+
+  logger.newline();
+  logger.info('Next steps:');
+  logger.log(chalk.dim('  1. Navigate to your projects folder'));
+  logger.log(chalk.dim('  2. Run `envii backup` to backup your .env files'));
+  logger.newline();
+}
+
+
+
+================================================
+FILE: cli/src/commands/list.ts
+================================================
+import chalk from 'chalk';
+import { loadConfig } from '../core/config.js';
+import { createApiClient } from '../core/api.js';
+import { deriveKey, decryptBackup } from '../core/crypto.js';
+import { logger } from '../utils/logger.js';
+import { inputRecoveryPhrase } from '../utils/prompts.js';
+
+interface ListOptions {
+  dev?: boolean;
+}
+
+interface BackupBlob {
+  version: number;
+  createdAt: string;
+  deviceId: string;
+  projects: {
+    id: string;
+    name: string;
+    git: string | null;
+    fingerprint: string;
+    path: string;
+    envs: {
+      filename: string;
+      checksum: string;
+      content: string;
+    }[];
+  }[];
+}
+
+export async function listCommand(options: ListOptions): Promise<void> {
+  // Load config
+  const config = await loadConfig();
+  if (!config) {
+    logger.error('Envii is not initialized. Run `envii init` first.');
+    process.exit(1);
+  }
+
+  logger.header('Envii Backup List');
+
+  // Get recovery phrase for decryption
+  logger.info('Enter your recovery phrase to view the backup:\n');
+  const phrase = await inputRecoveryPhrase();
+
+  // Derive encryption key
+  const spinner = logger.spinner('Deriving encryption key...');
+  const key = await deriveKey(phrase, config.salt);
+  spinner.succeed('Encryption key derived');
+
+  // Download latest backup
+  const downloadSpinner = logger.spinner('Downloading latest backup...');
+
+  try {
+    const api = createApiClient(config, options.dev);
+    const backup = await api.getLatestBackup();
+
+    if (!backup) {
+      downloadSpinner.fail('No backups found');
+      logger.newline();
+      logger.info('Run `envii backup` first to create a backup.');
+      return;
+    }
+
+    downloadSpinner.succeed('Downloaded backup');
+
+    // Decrypt
+    const decryptSpinner = logger.spinner('Decrypting...');
+    let blob: BackupBlob;
+
+    try {
+      const decrypted = await decryptBackup(backup.blob, key);
+      blob = JSON.parse(decrypted) as BackupBlob;
+      decryptSpinner.succeed('Decrypted successfully');
+    } catch (error) {
+      decryptSpinner.fail('Decryption failed');
+      logger.newline();
+      logger.error('Could not decrypt the backup. Wrong recovery phrase?');
+      process.exit(1);
+    }
+
+    // Display backup info
+    logger.newline();
+    logger.log(chalk.dim(`Last backup: ${new Date(backup.createdAt).toLocaleString()}`));
+    logger.log(chalk.dim(`Device ID: ${backup.deviceId}`));
+    logger.newline();
+
+    logger.log(chalk.bold(`Projects (${blob.projects.length}):`));
+    logger.newline();
+
+    let totalEnvFiles = 0;
+
+    for (const project of blob.projects) {
+      totalEnvFiles += project.envs.length;
+
+      const details: {
+        fingerprint?: string;
+        git?: string;
+        package?: string;
+        folder?: string;
+        files: string[];
+      } = {
+        fingerprint: project.fingerprint,
+        files: project.envs.map((e) => e.filename),
+      };
+
+      if (project.git) {
+        details.git = project.git;
+      } else {
+        details.folder = project.name;
+      }
+
+      logger.projectBox(project.name, details);
+      logger.newline();
+    }
+
+    logger.log(`Total: ${chalk.bold(totalEnvFiles)} environment file${totalEnvFiles === 1 ? '' : 's'}`);
+
+    if (options.dev) {
+      logger.newline();
+      logger.dim('(Using local development API)');
+    }
+  } catch (error) {
+    downloadSpinner.fail('Failed to fetch backup');
+    logger.newline();
+
+    if (error instanceof Error) {
+      logger.error(error.message);
+
+      if (error.message.includes('fetch')) {
+        logger.newline();
+        logger.info('Could not connect to the API server.');
+        if (options.dev) {
+          logger.dim('Make sure the local API is running: cd envii-api && npm run dev');
+        }
+      }
+    }
+
+    process.exit(1);
+  }
+
+  logger.newline();
+}
+
+
+
+================================================
+FILE: cli/src/commands/restore.ts
+================================================
+import * as path from "path";
+import chalk from "chalk";
+import { loadConfig } from "../core/config.js";
+import { createApiClient } from "../core/api.js";
+import {
+  scanDirectory,
+  buildFingerprintMap,
+  buildNameMap,
+  Project,
+} from "../core/scanner.js";
+import {
+  deriveKey,
+  decryptBackup,
+  extractSaltFromBackup,
+} from "../core/crypto.js";
+import { logger } from "../utils/logger.js";
+import { pathExists, writeFileContent } from "../utils/fs.js";
+import { inputRecoveryPhrase } from "../utils/prompts.js";
+
+interface RestoreOptions {
+  dev?: boolean;
+  force?: boolean;
+}
+
+interface BackupBlob {
+  version: number;
+  createdAt: string;
+  deviceId: string;
+  projects: {
+    id: string;
+    name: string;
+    git: string | null;
+    fingerprint: string;
+    path: string;
+    envs: {
+      filename: string;
+      checksum: string;
+      content: string;
+    }[];
+  }[];
+}
+
+interface RestoreStats {
+  restored: number;
+  skipped: number;
+  failed: number;
+}
+
+export async function restoreCommand(options: RestoreOptions): Promise<void> {
+  // Load config
+  const config = await loadConfig();
+  if (!config) {
+    logger.error("Envii is not initialized. Run `envii init` first.");
+    process.exit(1);
+  }
+
+  logger.header("Envii Restore");
+
+  // Get recovery phrase for decryption
+  logger.info("Enter your recovery phrase to decrypt the backup:\n");
+  const phrase = await inputRecoveryPhrase();
+
+  // Download latest backup first (we need to extract the salt from it)
+  const downloadSpinner = logger.spinner("Downloading latest backup...");
+
+  try {
+    const api = createApiClient(config, options.dev);
+    const backup = await api.getLatestBackup();
+
+    if (!backup) {
+      downloadSpinner.fail("No backups found");
+      logger.newline();
+      logger.info("Run `envii backup` first to create a backup.");
+      process.exit(1);
+    }
+
+    downloadSpinner.succeed(
+      `Downloaded backup from ${new Date(backup.createdAt).toLocaleString()}`,
+    );
+
+    // Extract salt from backup and derive key
+    const keySpinner = logger.spinner("Deriving encryption key...");
+    const salt = extractSaltFromBackup(backup.blob);
+    const key = await deriveKey(phrase, salt);
+    keySpinner.succeed("Encryption key derived");
+
+    // Decrypt
+    const decryptSpinner = logger.spinner("Decrypting...");
+    let blob: BackupBlob;
+
+    try {
+      const decrypted = await decryptBackup(backup.blob, key);
+      blob = JSON.parse(decrypted) as BackupBlob;
+      decryptSpinner.succeed("Decrypted successfully");
+    } catch (error) {
+      decryptSpinner.fail("Decryption failed");
+      logger.newline();
+      logger.error("Could not decrypt the backup. Wrong recovery phrase?");
+      process.exit(1);
+    }
+
+    // Show backup info
+    logger.newline();
+    logger.log(`Found ${chalk.bold(blob.projects.length)} projects in backup:`);
+    for (const project of blob.projects) {
+      logger.dim(`  - ${project.name}`);
+    }
+
+    // Scan local machine for projects
+    logger.newline();
+    const scanSpinner = logger.spinner("Scanning local machine...");
+    const cwd = process.cwd();
+    const { projects: localProjects } = await scanDirectory(cwd);
+    const fingerprintMap = buildFingerprintMap(localProjects);
+    const nameMap = buildNameMap(localProjects);
+
+    // Match projects (fingerprint first, then fallback to name)
+    const matched: Array<{
+      backupProject: BackupBlob["projects"][0];
+      localPath: string;
+      matchType: "fingerprint" | "name";
+    }> = [];
+    const unmatched: BackupBlob["projects"] = [];
+
+    for (const project of blob.projects) {
+      // Try fingerprint match first
+      let localPath = fingerprintMap.get(project.fingerprint);
+      let matchType: "fingerprint" | "name" = "fingerprint";
+
+      // Fallback to name-based matching
+      if (!localPath) {
+        localPath = nameMap.get(project.name.toLowerCase());
+        matchType = "name";
+      }
+
+      if (localPath) {
+        matched.push({ backupProject: project, localPath, matchType });
+      } else {
+        unmatched.push(project);
+      }
+    }
+
+    scanSpinner.succeed(
+      `Found ${matched.length} matching project${matched.length === 1 ? "" : "s"}`,
+    );
+
+    // Show matched projects
+    if (matched.length > 0) {
+      logger.newline();
+      for (const { backupProject, localPath, matchType } of matched) {
+        const suffix = matchType === "name" ? chalk.dim(" (matched by name)") : "";
+        logger.success(`${backupProject.name} → ${localPath}${suffix}`);
+      }
+    }
+
+    if (matched.length === 0) {
+      logger.newline();
+      logger.warn("No matching projects found locally.");
+      logger.info(
+        "Make sure you have cloned/created the projects before restoring.",
+      );
+
+      if (unmatched.length > 0) {
+        logger.newline();
+        logger.log("Projects not found locally:");
+        for (const project of unmatched) {
+          const envCount = project.envs.length;
+          const envText =
+            envCount === 1 ? "1 env file" : `${envCount} env files`;
+          logger.dim(`  - ${project.name} (${envText})`);
+        }
+      }
+
+      return;
+    }
+
+    // Restore files
+    logger.newline();
+    logger.log("Restoring environment files...");
+    logger.newline();
+
+    const stats: RestoreStats = { restored: 0, skipped: 0, failed: 0 };
+
+    for (const { backupProject, localPath } of matched) {
+      for (const envFile of backupProject.envs) {
+        const filePath = path.join(localPath, envFile.filename);
+        const relativePath = `${backupProject.name}/${envFile.filename}`;
+
+        try {
+          const exists = await pathExists(filePath);
+
+          if (exists && !options.force) {
+            logger.restoreItem(relativePath, "skipped");
+            stats.skipped++;
+          } else {
+            await writeFileContent(filePath, envFile.content, 0o600);
+            logger.restoreItem(relativePath, "restored");
+            stats.restored++;
+          }
+        } catch (error) {
+          logger.restoreItem(relativePath, "failed");
+          stats.failed++;
+        }
+      }
+    }
+
+    // Summary
+    const total = stats.restored + stats.skipped + stats.failed;
+    logger.newline();
+    logger.log(
+      `Restored ${chalk.green(stats.restored)} of ${total} files` +
+        (stats.skipped > 0 ? chalk.dim(` (${stats.skipped} skipped)`) : "") +
+        (stats.failed > 0 ? chalk.red(` (${stats.failed} failed)`) : ""),
+    );
+
+    // Show unmatched projects
+    if (unmatched.length > 0) {
+      logger.newline();
+      logger.log("Projects not found locally:");
+      for (const project of unmatched) {
+        const envCount = project.envs.length;
+        const envText = envCount === 1 ? "1 env file" : `${envCount} env files`;
+        logger.dim(`  - ${project.name} (${envText})`);
+      }
+    }
+
+    // Help text
+    if (stats.skipped > 0) {
+      logger.newline();
+      logger.info("Use --force to overwrite existing files.");
+    }
+
+    if (options.dev) {
+      logger.newline();
+      logger.dim("(Using local development API)");
+    }
+  } catch (error) {
+    downloadSpinner.fail("Restore failed");
+    logger.newline();
+
+    if (error instanceof Error) {
+      logger.error(error.message);
+
+      if (error.message.includes("fetch")) {
+        logger.newline();
+        logger.info("Could not connect to the API server.");
+        if (options.dev) {
+          logger.dim(
+            "Make sure the local API is running: cd envii-api && npm run dev",
+          );
+        }
+      }
+    }
+
+    process.exit(1);
+  }
+
+  logger.newline();
+}
+
+
+
+================================================
+FILE: cli/src/core/api.ts
+================================================
+import { EnviiConfig, getApiUrl } from './config.js';
+
+interface BackupResponse {
+  id: string;
+  vaultId: string;
+  createdAt: string;
+}
+
+interface LatestBackupResponse {
+  id: string;
+  blob: string;
+  createdAt: string;
+  deviceId: string;
+}
+
+interface BackupListItem {
+  id: string;
+  createdAt: string;
+  sizeBytes: number;
+  deviceId: string;
+}
+
+interface BackupListResponse {
+  backups: BackupListItem[];
+  total: number;
+}
+
+interface HealthResponse {
+  status: string;
+  version: string;
+}
+
+interface ApiError {
+  error: string;
+}
+
+class ApiClient {
+  private baseUrl: string;
+  private vaultId: string;
+
+  constructor(config: EnviiConfig, dev?: boolean) {
+    this.baseUrl = getApiUrl(config, dev);
+    this.vaultId = config.vaultId;
+  }
+
+  private getHeaders(): Record<string, string> {
+    return {
+      'Authorization': `Bearer ${this.vaultId}`,
+      'Content-Type': 'application/json',
+    };
+  }
+
+  /**
+   * Upload a backup
+   */
+  async uploadBackup(blob: string, deviceId: string): Promise<BackupResponse> {
+    const response = await fetch(`${this.baseUrl}/backup`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ blob, deviceId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json() as ApiError;
+      throw new Error(error.error || `Upload failed: ${response.status}`);
+    }
+
+    return response.json() as Promise<BackupResponse>;
+  }
+
+  /**
+   * Get the latest backup
+   */
+  async getLatestBackup(): Promise<LatestBackupResponse | null> {
+    const response = await fetch(`${this.baseUrl}/backup/latest`, {
+      method: 'GET',
+      headers: this.getHeaders(),
+    });
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      const error = await response.json() as ApiError;
+      throw new Error(error.error || `Failed to fetch backup: ${response.status}`);
+    }
+
+    return response.json() as Promise<LatestBackupResponse>;
+  }
+
+  /**
+   * List all backups
+   */
+  async listBackups(limit = 10, offset = 0): Promise<BackupListResponse> {
+    const response = await fetch(
+      `${this.baseUrl}/backups?limit=${limit}&offset=${offset}`,
+      {
+        method: 'GET',
+        headers: this.getHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json() as ApiError;
+      throw new Error(error.error || `Failed to list backups: ${response.status}`);
+    }
+
+    return response.json() as Promise<BackupListResponse>;
+  }
+
+  /**
+   * Health check
+   */
+  async healthCheck(): Promise<HealthResponse> {
+    const response = await fetch(`${this.baseUrl}/health`, {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Health check failed: ${response.status}`);
+    }
+
+    return response.json() as Promise<HealthResponse>;
+  }
+}
+
+export function createApiClient(config: EnviiConfig, dev?: boolean): ApiClient {
+  return new ApiClient(config, dev);
+}
+
+export type { ApiClient, BackupResponse, LatestBackupResponse, BackupListItem, BackupListResponse };
+
+
+
+================================================
+FILE: cli/src/core/config.ts
+================================================
+import * as os from 'os';
+import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { pathExists, readJsonFile, writeJsonFile } from '../utils/fs.js';
+
+const CONFIG_DIR = path.join(os.homedir(), '.envii');
+const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
+
+const PROD_API_URL = 'https://api.envii.dev';
+const DEV_API_URL = 'http://localhost:4400';
+
+export interface EnviiConfig {
+  vaultId: string;
+  deviceId: string;
+  apiUrl: string;
+  salt: string;
+}
+
+/**
+ * Check if config exists
+ */
+export async function configExists(): Promise<boolean> {
+  return pathExists(CONFIG_FILE);
+}
+
+/**
+ * Load config from disk
+ */
+export async function loadConfig(): Promise<EnviiConfig | null> {
+  if (!(await configExists())) {
+    return null;
+  }
+  try {
+    return await readJsonFile<EnviiConfig>(CONFIG_FILE);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save config to disk
+ */
+export async function saveConfig(config: EnviiConfig): Promise<void> {
+  await writeJsonFile(CONFIG_FILE, config);
+}
+
+/**
+ * Create new config
+ */
+export function createConfig(vaultId: string, salt: string, dev: boolean): EnviiConfig {
+  return {
+    vaultId,
+    deviceId: uuidv4(),
+    apiUrl: dev ? DEV_API_URL : PROD_API_URL,
+    salt,
+  };
+}
+
+/**
+ * Get API URL (respects --dev flag override)
+ */
+export function getApiUrl(config: EnviiConfig, dev?: boolean): string {
+  if (dev) {
+    return DEV_API_URL;
+  }
+  return config.apiUrl;
+}
+
+/**
+ * Get config directory path
+ */
+export function getConfigDir(): string {
+  return CONFIG_DIR;
+}
+
+/**
+ * Get config file path
+ */
+export function getConfigPath(): string {
+  return CONFIG_FILE;
+}
+
+
+
+================================================
+FILE: cli/src/core/crypto.ts
+================================================
+import * as crypto from "crypto";
+import { promisify } from "util";
+import * as zlib from "zlib";
+import * as bip39 from "bip39";
+
+const gzip = promisify(zlib.gzip);
+const gunzip = promisify(zlib.gunzip);
+
+// AES-256-GCM constants
+const ALGORITHM = "aes-256-gcm";
+const IV_LENGTH = 12; // 96 bits for GCM
+const AUTH_TAG_LENGTH = 16; // 128 bits
+const KEY_LENGTH = 32; // 256 bits
+const SALT_LENGTH = 32; // 256 bits
+
+// Argon2 alternative using PBKDF2 (Node.js native)
+// In production, use argon2 package for better security
+const PBKDF2_ITERATIONS = 600000; // OWASP 2023 recommendation for SHA-256
+
+/**
+ * Generate a new 12-word BIP-39 mnemonic phrase
+ */
+export function generateRecoveryPhrase(): string {
+  return bip39.generateMnemonic(128); // 128 bits = 12 words
+}
+
+/**
+ * Validate a BIP-39 mnemonic phrase
+ */
+export function validateRecoveryPhrase(phrase: string): boolean {
+  const words = phrase.trim().split(/\s+/);
+  if (words.length !== 12) {
+    return false;
+  }
+  return bip39.validateMnemonic(phrase);
+}
+
+/**
+ * Generate a random salt
+ */
+export function generateSalt(): string {
+  return crypto.randomBytes(SALT_LENGTH).toString("base64");
+}
+
+/**
+ * Derive encryption key from recovery phrase using PBKDF2
+ */
+export async function deriveKey(phrase: string, salt: string): Promise<Buffer> {
+  const saltBuffer = Buffer.from(salt, "base64");
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(
+      phrase,
+      saltBuffer,
+      PBKDF2_ITERATIONS,
+      KEY_LENGTH,
+      "sha256",
+      (err, key) => {
+        if (err) reject(err);
+        else resolve(key);
+      },
+    );
+  });
+}
+
+/**
+ * Generate vault ID from recovery phrase (SHA-256 hash)
+ */
+export function generateVaultId(phrase: string): string {
+  return crypto.createHash("sha256").update(phrase).digest("hex");
+}
+
+/**
+ * Generate SHA-256 checksum of content
+ */
+export function sha256(content: string): string {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
+
+/**
+ * Compress data using gzip
+ */
+export async function compress(data: string): Promise<Buffer> {
+  return gzip(Buffer.from(data, "utf-8"));
+}
+
+/**
+ * Decompress gzipped data
+ */
+export async function decompress(data: Buffer): Promise<string> {
+  const decompressed = await gunzip(data);
+  return decompressed.toString("utf-8");
+}
+
+/**
+ * Encrypt data using AES-256-GCM
+ * Returns: IV (12 bytes) + ciphertext + auth tag (16 bytes)
+ */
+export function encrypt(data: Buffer, key: Buffer): Buffer {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+
+  const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+
+  // Format: IV + ciphertext + authTag
+  return Buffer.concat([iv, encrypted, authTag]);
+}
+
+/**
+ * Decrypt data using AES-256-GCM
+ * Input format: IV (12 bytes) + ciphertext + auth tag (16 bytes)
+ */
+export function decrypt(encryptedData: Buffer, key: Buffer): Buffer {
+  if (encryptedData.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+    throw new Error("Invalid encrypted data: too short");
+  }
+
+  const iv = encryptedData.subarray(0, IV_LENGTH);
+  const authTag = encryptedData.subarray(
+    encryptedData.length - AUTH_TAG_LENGTH,
+  );
+  const ciphertext = encryptedData.subarray(
+    IV_LENGTH,
+    encryptedData.length - AUTH_TAG_LENGTH,
+  );
+
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+  decipher.setAuthTag(authTag);
+
+  return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+}
+
+/**
+ * Full encryption pipeline: compress → encrypt → base64
+ * Format: salt (32 bytes) + IV (12 bytes) + ciphertext + auth tag (16 bytes)
+ */
+export async function encryptBackup(
+  data: string,
+  key: Buffer,
+  salt: string,
+): Promise<string> {
+  const compressed = await compress(data);
+  const encrypted = encrypt(compressed, key);
+  const saltBuffer = Buffer.from(salt, "base64");
+  // Prepend salt to encrypted data
+  const withSalt = Buffer.concat([saltBuffer, encrypted]);
+  return withSalt.toString("base64");
+}
+
+/**
+ * Extract salt from encrypted backup
+ */
+export function extractSaltFromBackup(encryptedBase64: string): string {
+  const data = Buffer.from(encryptedBase64, "base64");
+  const saltBuffer = data.subarray(0, SALT_LENGTH);
+  return saltBuffer.toString("base64");
+}
+
+/**
+ * Full decryption pipeline: base64 → extract salt → decrypt → decompress
+ */
+export async function decryptBackup(
+  encryptedBase64: string,
+  key: Buffer,
+): Promise<string> {
+  const data = Buffer.from(encryptedBase64, "base64");
+  // Skip the salt (first 32 bytes)
+  const encrypted = data.subarray(SALT_LENGTH);
+  const decrypted = decrypt(encrypted, key);
+  return decompress(decrypted);
+}
+
+/**
+ * Get compressed and uncompressed sizes
+ */
+export async function getSizes(
+  data: string,
+): Promise<{ original: number; compressed: number }> {
+  const original = Buffer.byteLength(data, "utf-8");
+  const compressed = await compress(data);
+  return {
+    original,
+    compressed: compressed.length,
+  };
+}
+
+
+
+================================================
+FILE: cli/src/core/fingerprint.ts
+================================================
+import * as path from 'path';
+import { execSync } from 'child_process';
+import { sha256 } from './crypto.js';
+import { pathExists, readJsonFile } from '../utils/fs.js';
+
+export interface FingerprintResult {
+  fingerprint: string;
+  source: 'git' | 'package' | 'folder';
+  value: string;
+}
+
+/**
+ * Generate fingerprint for a project directory
+ * Priority: git remote URL > package.json name > folder name
+ */
+export async function generateFingerprint(projectPath: string): Promise<FingerprintResult> {
+  // Try git remote URL first
+  const gitFingerprint = await getGitRemoteFingerprint(projectPath);
+  if (gitFingerprint) {
+    return gitFingerprint;
+  }
+
+  // Try package.json name
+  const packageFingerprint = await getPackageJsonFingerprint(projectPath);
+  if (packageFingerprint) {
+    return packageFingerprint;
+  }
+
+  // Fall back to folder name
+  const folderName = path.basename(projectPath);
+  return {
+    fingerprint: sha256(folderName),
+    source: 'folder',
+    value: folderName,
+  };
+}
+
+/**
+ * Get fingerprint from git remote URL
+ */
+async function getGitRemoteFingerprint(projectPath: string): Promise<FingerprintResult | null> {
+  const gitDir = path.join(projectPath, '.git');
+  if (!(await pathExists(gitDir))) {
+    return null;
+  }
+
+  try {
+    const remoteUrl = execSync('git remote get-url origin', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+
+    if (remoteUrl) {
+      return {
+        fingerprint: sha256(remoteUrl),
+        source: 'git',
+        value: remoteUrl,
+      };
+    }
+  } catch {
+    // No git remote or git not available
+  }
+
+  return null;
+}
+
+/**
+ * Get fingerprint from package.json name
+ */
+async function getPackageJsonFingerprint(projectPath: string): Promise<FingerprintResult | null> {
+  const packageJsonPath = path.join(projectPath, 'package.json');
+  if (!(await pathExists(packageJsonPath))) {
+    return null;
+  }
+
+  try {
+    const packageJson = await readJsonFile<{ name?: string }>(packageJsonPath);
+    if (packageJson.name) {
+      return {
+        fingerprint: sha256(packageJson.name),
+        source: 'package',
+        value: packageJson.name,
+      };
+    }
+  } catch {
+    // Invalid package.json
+  }
+
+  return null;
+}
+
+/**
+ * Get project name for display
+ */
+export async function getProjectName(projectPath: string): Promise<string> {
+  // Try package.json name first for display
+  const packageJsonPath = path.join(projectPath, 'package.json');
+  if (await pathExists(packageJsonPath)) {
+    try {
+      const packageJson = await readJsonFile<{ name?: string }>(packageJsonPath);
+      if (packageJson.name) {
+        return packageJson.name;
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // Fall back to folder name
+  return path.basename(projectPath);
+}
+
+/**
+ * Get git remote URL if available
+ */
+export async function getGitRemoteUrl(projectPath: string): Promise<string | null> {
+  const gitDir = path.join(projectPath, '.git');
+  if (!(await pathExists(gitDir))) {
+    return null;
+  }
+
+  try {
+    return execSync('git remote get-url origin', {
+      cwd: projectPath,
+      encoding: 'utf-8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
+  } catch {
+    return null;
+  }
+}
+
+
+
+================================================
+FILE: cli/src/core/scanner.ts
+================================================
+import * as fs from "fs/promises";
+import * as path from "path";
+import { v4 as uuidv4 } from "uuid";
+import { pathExists, isDirectory, readFileContent } from "../utils/fs.js";
+import {
+  generateFingerprint,
+  getProjectName,
+  getGitRemoteUrl,
+} from "./fingerprint.js";
+import { sha256 } from "./crypto.js";
+
+// Project marker files
+const PROJECT_MARKERS = [
+  ".git",
+  "package.json",
+  "pyproject.toml",
+  "go.mod",
+  "Cargo.toml",
+  "composer.json",
+];
+
+// Directories to skip during scanning
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".git",
+  "vendor",
+  "dist",
+  "build",
+  ".next",
+  ".nuxt",
+  "__pycache__",
+  ".venv",
+  "venv",
+  "target",
+  ".cargo",
+]);
+
+// Environment file patterns - matches .env and .env.*
+const ENV_PATTERNS = [/^\.env$/, /^\.env\..+$/];
+
+export interface EnvFile {
+  filename: string;
+  checksum: string;
+  content: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  path: string;
+  git: string | null;
+  fingerprint: string;
+  fingerprintSource: "git" | "package" | "folder";
+  fingerprintValue: string;
+  envs: EnvFile[];
+}
+
+export interface ScanResult {
+  projects: Project[];
+  totalEnvFiles: number;
+}
+
+/**
+ * Check if a directory is a project root
+ */
+async function isProjectRoot(dirPath: string): Promise<boolean> {
+  for (const marker of PROJECT_MARKERS) {
+    const markerPath = path.join(dirPath, marker);
+    if (await pathExists(markerPath)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Check if a filename matches env file patterns
+ */
+function isEnvFile(filename: string): boolean {
+  return ENV_PATTERNS.some((pattern) => pattern.test(filename));
+}
+
+/**
+ * Find all env files in a project directory recursively
+ */
+async function findEnvFiles(projectPath: string): Promise<EnvFile[]> {
+  const envFiles: EnvFile[] = [];
+
+  async function scanDir(dirPath: string, prefix: string = ""): Promise<void> {
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        const entryPath = path.join(dirPath, entry.name);
+
+        if (entry.isFile() && isEnvFile(entry.name)) {
+          try {
+            const content = await readFileContent(entryPath);
+            const filename = prefix ? `${prefix}/${entry.name}` : entry.name;
+            envFiles.push({
+              filename,
+              checksum: sha256(content),
+              content,
+            });
+          } catch {
+            // Skip files we can't read
+          }
+        } else if (
+          entry.isDirectory() &&
+          !SKIP_DIRS.has(entry.name) &&
+          !entry.name.startsWith(".")
+        ) {
+          // Recursively scan subdirectories
+          const newPrefix = prefix ? `${prefix}/${entry.name}` : entry.name;
+          await scanDir(entryPath, newPrefix);
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  await scanDir(projectPath);
+  return envFiles;
+}
+
+/**
+ * Scan a directory tree for projects and their env files
+ */
+export async function scanDirectory(rootPath: string): Promise<ScanResult> {
+  const projects: Project[] = [];
+  let totalEnvFiles = 0;
+
+  async function scan(dirPath: string): Promise<void> {
+    // Check if this directory is a project
+    if (await isProjectRoot(dirPath)) {
+      const fingerprint = await generateFingerprint(dirPath);
+      const name = await getProjectName(dirPath);
+      const git = await getGitRemoteUrl(dirPath);
+      const envs = await findEnvFiles(dirPath);
+
+      projects.push({
+        id: uuidv4(),
+        name,
+        path: dirPath,
+        git,
+        fingerprint: fingerprint.fingerprint,
+        fingerprintSource: fingerprint.source,
+        fingerprintValue: fingerprint.value,
+        envs,
+      });
+
+      totalEnvFiles += envs.length;
+
+      // Don't descend into project subdirectories looking for nested projects
+      // This is a design decision - we treat each project as atomic
+      return;
+    }
+
+    // Scan subdirectories
+    try {
+      const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (
+          entry.isDirectory() &&
+          !SKIP_DIRS.has(entry.name) &&
+          !entry.name.startsWith(".")
+        ) {
+          const subPath = path.join(dirPath, entry.name);
+          await scan(subPath);
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  // Start scanning from root
+  // First check if root itself is a project
+  if (await isProjectRoot(rootPath)) {
+    const fingerprint = await generateFingerprint(rootPath);
+    const name = await getProjectName(rootPath);
+    const git = await getGitRemoteUrl(rootPath);
+    const envs = await findEnvFiles(rootPath);
+
+    projects.push({
+      id: uuidv4(),
+      name,
+      path: rootPath,
+      git,
+      fingerprint: fingerprint.fingerprint,
+      fingerprintSource: fingerprint.source,
+      fingerprintValue: fingerprint.value,
+      envs,
+    });
+
+    totalEnvFiles += envs.length;
+  } else {
+    // Scan subdirectories
+    try {
+      const entries = await fs.readdir(rootPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (entry.isDirectory() && !SKIP_DIRS.has(entry.name)) {
+          const subPath = path.join(rootPath, entry.name);
+          await scan(subPath);
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  return { projects, totalEnvFiles };
+}
+
+/**
+ * Build fingerprint map from scanned projects
+ */
+export function buildFingerprintMap(projects: Project[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const project of projects) {
+    map.set(project.fingerprint, project.path);
+  }
+  return map;
+}
+
+/**
+ * Build name-to-path map from scanned projects (for fallback matching)
+ */
+export function buildNameMap(projects: Project[]): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const project of projects) {
+    // Use project name as key (lowercase for case-insensitive matching)
+    map.set(project.name.toLowerCase(), project.path);
+    // Also map folder name for additional matching
+    const folderName = project.path.split('/').pop()?.toLowerCase();
+    if (folderName && !map.has(folderName)) {
+      map.set(folderName, project.path);
+    }
+  }
+  return map;
+}
+
+
+
+================================================
+FILE: cli/src/utils/fs.ts
+================================================
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+/**
+ * Check if a path exists
+ */
+export async function pathExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a path is a directory
+ */
+export async function isDirectory(filePath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(filePath);
+    return stats.isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Check if a path is a file
+ */
+export async function isFile(filePath: string): Promise<boolean> {
+  try {
+    const stats = await fs.stat(filePath);
+    return stats.isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Read file content as string
+ */
+export async function readFileContent(filePath: string): Promise<string> {
+  return fs.readFile(filePath, 'utf-8');
+}
+
+/**
+ * Write content to file, creating directories if needed
+ */
+export async function writeFileContent(
+  filePath: string,
+  content: string,
+  mode: number = 0o600
+): Promise<void> {
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, content, { encoding: 'utf-8', mode });
+}
+
+/**
+ * Get file size in bytes
+ */
+export async function getFileSize(filePath: string): Promise<number> {
+  const stats = await fs.stat(filePath);
+  return stats.size;
+}
+
+/**
+ * Read JSON file
+ */
+export async function readJsonFile<T>(filePath: string): Promise<T> {
+  const content = await fs.readFile(filePath, 'utf-8');
+  return JSON.parse(content) as T;
+}
+
+/**
+ * Write JSON file
+ */
+export async function writeJsonFile(filePath: string, data: unknown): Promise<void> {
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, JSON.stringify(data, null, 2), {
+    encoding: 'utf-8',
+    mode: 0o600,
+  });
+}
+
+/**
+ * List directory contents
+ */
+export async function listDirectory(dirPath: string): Promise<string[]> {
+  return fs.readdir(dirPath);
+}
+
+/**
+ * Format bytes to human readable string
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+
+
+================================================
+FILE: cli/src/utils/logger.ts
+================================================
+import chalk from 'chalk';
+import ora, { Ora } from 'ora';
+
+export const logger = {
+  info: (message: string) => {
+    console.log(chalk.blue('ℹ'), message);
+  },
+
+  success: (message: string) => {
+    console.log(chalk.green('✓'), message);
+  },
+
+  warn: (message: string) => {
+    console.log(chalk.yellow('⚠'), message);
+  },
+
+  error: (message: string) => {
+    console.log(chalk.red('✗'), message);
+  },
+
+  log: (message: string) => {
+    console.log(message);
+  },
+
+  newline: () => {
+    console.log();
+  },
+
+  box: (content: string[], style: 'warning' | 'info' | 'success' = 'info') => {
+    const colors = {
+      warning: chalk.yellow,
+      info: chalk.blue,
+      success: chalk.green,
+    };
+    const color = colors[style];
+    const border = '━'.repeat(50);
+    
+    console.log(color(border));
+    content.forEach((line) => console.log(line));
+    console.log(color(border));
+  },
+
+  header: (title: string) => {
+    console.log();
+    console.log(chalk.bold.cyan(title));
+    console.log();
+  },
+
+  dim: (message: string) => {
+    console.log(chalk.dim(message));
+  },
+
+  spinner: (message: string): Ora => {
+    return ora({
+      text: message,
+      color: 'cyan',
+    }).start();
+  },
+
+  projectItem: (name: string, envCount: number, git?: string | null) => {
+    const envText = envCount === 1 ? '1 env file' : `${envCount} env files`;
+    console.log(chalk.green('✓'), chalk.bold(name), chalk.dim(`(${envText})`));
+  },
+
+  projectBox: (name: string, details: { fingerprint?: string; git?: string; package?: string; folder?: string; files: string[] }) => {
+    console.log(chalk.cyan('📦'), chalk.bold(name));
+    if (details.fingerprint) {
+      console.log(chalk.dim(`   Fingerprint: ${details.fingerprint.substring(0, 8)}...`));
+    }
+    if (details.git) {
+      console.log(chalk.dim(`   Git: ${details.git}`));
+    }
+    if (details.package) {
+      console.log(chalk.dim(`   Package: ${details.package}`));
+    }
+    if (details.folder) {
+      console.log(chalk.dim(`   Folder: ${details.folder}`));
+    }
+    const filesStr = details.files.length > 0 ? details.files.join(', ') : '(none)';
+    console.log(chalk.dim(`   Files: ${filesStr}`));
+  },
+
+  restoreItem: (path: string, status: 'restored' | 'skipped' | 'failed') => {
+    const icons = {
+      restored: chalk.green('✓'),
+      skipped: chalk.yellow('○'),
+      failed: chalk.red('✗'),
+    };
+    const labels = {
+      restored: chalk.green('restored'),
+      skipped: chalk.yellow('skipped - already exists'),
+      failed: chalk.red('failed'),
+    };
+    console.log(icons[status], path, chalk.dim(`(${labels[status]})`));
+  },
+};
+
+
+
+================================================
+FILE: cli/src/utils/prompts.ts
+================================================
+import inquirer from 'inquirer';
+import chalk from 'chalk';
+
+export async function confirmPhrase(): Promise<boolean> {
+  const { confirmed } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirmed',
+      message: 'Have you saved your recovery phrase?',
+      default: false,
+    },
+  ]);
+  return confirmed;
+}
+
+export async function hasExistingPhrase(): Promise<boolean> {
+  const { hasPhrase } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'hasPhrase',
+      message: 'Do you already have a recovery phrase?',
+      default: false,
+    },
+  ]);
+  return hasPhrase;
+}
+
+export async function inputRecoveryPhrase(): Promise<string> {
+  const { phrase } = await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'phrase',
+      message: 'Enter your 12-word recovery phrase:',
+      validate: (input: string) => {
+        const words = input.trim().split(/\s+/);
+        if (words.length !== 12) {
+          return 'Recovery phrase must be exactly 12 words';
+        }
+        return true;
+      },
+    },
+  ]);
+  return phrase.trim();
+}
+
+export async function confirmOverwrite(): Promise<boolean> {
+  const { confirmed } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'confirmed',
+      message: chalk.yellow('Config already exists. Do you want to overwrite it?'),
+      default: false,
+    },
+  ]);
+  return confirmed;
+}
+
+export async function pressEnterToContinue(): Promise<void> {
+  await inquirer.prompt([
+    {
+      type: 'input',
+      name: 'continue',
+      message: 'Press Enter to continue...',
+    },
+  ]);
+}
+
+
+
+================================================
+FILE: web/README.md
+================================================
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+
+
+================================================
+FILE: web/eslint.config.js
+================================================
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs.flat.recommended,
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+  },
+])
+
+
+
+================================================
+FILE: web/index.html
+================================================
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>envii — Backup your .env files across machines</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
+
+
+================================================
+FILE: web/package.json
+================================================
+{
+  "name": "web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.562.0",
+    "posthog-js": "^1.328.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-icons": "^5.5.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
+  }
+}
+
+
+
+================================================
+FILE: web/tsconfig.app.json
+================================================
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+
+
+
+================================================
+FILE: web/tsconfig.json
+================================================
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+
+
+
+================================================
+FILE: web/tsconfig.node.json
+================================================
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+
+
+
+================================================
+FILE: web/vite.config.ts
+================================================
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+});
+
+
+
+================================================
+FILE: web/src/App.tsx
+================================================
+import "./index.css";
+import { Hero } from "./components/Hero";
+import { Features } from "./components/Features";
+import { HowItWorks } from "./components/HowItWorks";
+import { Installation } from "./components/Installation";
+import { Security } from "./components/Security";
+import { Footer } from "./components/Footer";
+
+function App() {
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+      <Hero />
+      <Features />
+      <HowItWorks />
+      <Installation />
+      <Security />
+      <Footer />
+    </div>
+  );
+}
+
+export default App;
+
+
+
+================================================
+FILE: web/src/index.css
+================================================
+@import "tailwindcss";
+
+@theme {
+  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+
+
+================================================
+FILE: web/src/main.tsx
+================================================
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+import { PostHogProvider } from 'posthog-js/react'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <PostHogProvider
+      apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+      options={{
+        api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+        defaults: '2025-05-24',
+        capture_exceptions: true, // This enables capturing exceptions using Error Tracking, set to false if you don't want this
+        debug: import.meta.env.MODE === 'development',
+      }}
+    >
+      <App />
+    </PostHogProvider>
+  </StrictMode>,
+)
+
+
+================================================
+FILE: web/src/components/Features.tsx
+================================================
+import {
+  Shield,
+  Key,
+  Cloud,
+  Fingerprint,
+  FolderSync,
+  Lock,
+} from "lucide-react";
+
+const features = [
+  {
+    icon: Lock,
+    title: "End-to-End Encryption",
+    description:
+      "Your secrets are encrypted locally with AES-256-GCM before leaving your machine. The server never sees your plaintext data.",
+  },
+  {
+    icon: Key,
+    title: "Recovery Phrase Only",
+    description:
+      "No accounts, emails, or passwords. Just a 12-word BIP-39 phrase that you control. Lose the phrase? We can't help — by design.",
+  },
+  {
+    icon: Cloud,
+    title: "Cloud-First",
+    description:
+      "Access your environment files from anywhere. Perfect for setting up new machines or switching between devices.",
+  },
+  {
+    icon: Fingerprint,
+    title: "Smart Matching",
+    description:
+      "Projects are matched across machines using git remote URLs, package names, or folder names. Restore finds the right files automatically.",
+  },
+  {
+    icon: FolderSync,
+    title: "Full Project Restore",
+    description:
+      "Restore complete project environments including nested .env files in monorepos. One command brings back everything.",
+  },
+  {
+    icon: Shield,
+    title: "Zero Knowledge",
+    description:
+      "The server stores only encrypted blobs. No metadata about your projects, no file names, no directory structure visible to anyone but you.",
+  },
+];
+
+export function Features() {
+  return (
+    <section className="relative py-24 border-t border-zinc-800">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
+
+      <div className="relative max-w-5xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-white">
+            Built for developers who care about security
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400 max-w-2xl mx-auto">
+            Envii is designed with privacy and simplicity at its core. No
+            compromises.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-px bg-zinc-800">
+          {features.map((feature, index) => (
+            <div
+              key={feature.title}
+              className="relative p-6 bg-zinc-950 hover:bg-zinc-900/80 transition-colors group"
+            >
+              <div className="absolute top-0 left-0 w-3 h-3 border-l border-t border-transparent group-hover:border-emerald-500/50 transition-colors" />
+              <div className="absolute top-0 right-0 w-3 h-3 border-r border-t border-transparent group-hover:border-emerald-500/50 transition-colors" />
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-8 h-8 border border-zinc-700 flex items-center justify-center">
+                  <feature.icon className="w-4 h-4 text-emerald-400" />
+                </div>
+                <span className="text-xs text-zinc-600 font-mono">
+                  0{index + 1}
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">
+                {feature.title}
+              </h3>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                {feature.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+================================================
+FILE: web/src/components/Footer.tsx
+================================================
+import { SiGithub, SiNpm } from "react-icons/si";
+
+export function Footer() {
+  return (
+    <footer className="relative py-12 border-t border-zinc-800">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.01)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.01)_1px,transparent_1px)] bg-[size:48px_48px]" />
+
+      <div className="relative max-w-5xl mx-auto px-6">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 border border-emerald-500 flex items-center justify-center text-emerald-400 font-mono text-sm">
+              E
+            </div>
+            <span className="text-xl font-semibold text-white font-mono">
+              envii
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <a
+              href="https://github.com/akinloluwami/envii"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-emerald-500/50 transition-colors"
+            >
+              <SiGithub className="w-4 h-4" />
+            </a>
+            <a
+              href="https://npmjs.com/package/envii-cli"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-9 h-9 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-emerald-500/50 transition-colors"
+            >
+              <SiNpm className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+
+        <div className="mt-8 pt-8 border-t border-zinc-800 flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-zinc-600">
+          <p className="font-mono">
+            © {new Date().getFullYear()} envii — MIT License
+          </p>
+          <p>
+            Built for developers who value their secrets
+            <span className="text-emerald-500 ml-1">_</span>
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+
+
+================================================
+FILE: web/src/components/Hero.tsx
+================================================
+export function Hero() {
+  return (
+    <section className="relative overflow-hidden">
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:64px_64px]" />
+      <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent" />
+
+      <div className="absolute top-0 left-1/4 w-px h-48 bg-gradient-to-b from-emerald-500/50 to-transparent" />
+      <div className="absolute top-0 right-1/4 w-px h-32 bg-gradient-to-b from-emerald-500/30 to-transparent" />
+
+      <div className="relative max-w-5xl mx-auto px-6 pt-24 pb-20">
+        <div className="flex justify-center mb-8">
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 border border-zinc-700 bg-zinc-900/80 text-sm text-zinc-300">
+            <span className="w-1.5 h-1.5 bg-emerald-400 animate-pulse" />
+            Open Source CLI Tool
+          </span>
+        </div>
+
+        <h1 className="text-5xl md:text-7xl font-bold text-center tracking-tight">
+          <span className="text-white">Backup your </span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+            .env files
+          </span>
+          <br />
+          <span className="text-white">across machines</span>
+        </h1>
+
+        <p className="mt-6 text-xl text-zinc-400 text-center max-w-2xl mx-auto leading-relaxed">
+          End-to-end encrypted backup and restore for your environment
+          variables. No accounts. No passwords. Just your 12-word recovery
+          phrase.
+        </p>
+
+        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <a
+            href="#installation"
+            className="px-8 py-3 bg-emerald-500 hover:bg-emerald-400 text-zinc-900 font-semibold transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="https://github.com/akinloluwami/envii"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group relative px-8 py-3 font-medium transition-all overflow-hidden border border-yellow-500/50 hover:border-yellow-400 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 hover:from-yellow-500/20 hover:to-amber-500/20"
+          >
+            <span className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,215,0,0.1)_50%,transparent_75%)] bg-[length:250%_250%] animate-[shimmer_3s_infinite]" />
+            <span className="relative flex items-center gap-2 text-yellow-400 group-hover:text-yellow-300">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 .587l3.668 7.568 8.332 1.151-6.064 5.828 1.48 8.279-7.416-3.967-7.417 3.967 1.481-8.279-6.064-5.828 8.332-1.151z" />
+              </svg>
+              Star on GitHub
+            </span>
+          </a>
+        </div>
+
+        <div className="mt-16 max-w-3xl mx-auto relative">
+          <div className="absolute -top-2 -left-2 w-4 h-4 border-l-2 border-t-2 border-emerald-500/50" />
+          <div className="absolute -top-2 -right-2 w-4 h-4 border-r-2 border-t-2 border-emerald-500/50" />
+          <div className="absolute -bottom-2 -left-2 w-4 h-4 border-l-2 border-b-2 border-emerald-500/50" />
+          <div className="absolute -bottom-2 -right-2 w-4 h-4 border-r-2 border-b-2 border-emerald-500/50" />
+
+          <div className="border border-zinc-800 bg-zinc-900/90 backdrop-blur">
+            <div className="flex items-center justify-between px-4 py-3 bg-zinc-800/50 border-b border-zinc-800">
+              <div className="flex items-center gap-3">
+                <div className="flex gap-1.5">
+                  <div className="w-3 h-3 bg-zinc-600" />
+                  <div className="w-3 h-3 bg-zinc-600" />
+                  <div className="w-3 h-3 bg-zinc-600" />
+                </div>
+                <span className="text-sm text-zinc-500 font-mono">
+                  terminal
+                </span>
+              </div>
+              <div className="w-4 h-4 border border-zinc-600 flex items-center justify-center">
+                <div className="w-2 h-2 border border-zinc-500" />
+              </div>
+            </div>
+            <div className="p-6 font-mono text-sm leading-relaxed">
+              <div className="text-zinc-500"># Install envii globally</div>
+              <div className="text-zinc-100">
+                <span className="text-emerald-400">$</span> npm install -g
+                envii-cli
+              </div>
+              <div className="mt-4 text-zinc-500">
+                # Initialize with a recovery phrase
+              </div>
+              <div className="text-zinc-100">
+                <span className="text-emerald-400">$</span> envii init
+              </div>
+              <div className="mt-4 text-zinc-500">
+                # Backup all .env files in your projects
+              </div>
+              <div className="text-zinc-100">
+                <span className="text-emerald-400">$</span> envii backup
+              </div>
+              <div className="text-emerald-400 mt-2">
+                ✓ Found 12 projects with 28 env files
+                <br />✓ Backup complete: bkp_8f07d168dd44
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+================================================
+FILE: web/src/components/HowItWorks.tsx
+================================================
+const steps = [
+  {
+    number: "01",
+    title: "Initialize",
+    description:
+      "Run envii init to generate or enter your 12-word recovery phrase. This creates your unique vault.",
+    code: `$ envii init
+
+🔐 Generating recovery phrase...
+
+Your recovery phrase:
+  stone pond season stumble happy
+  endless riot pass slice reduce
+  aware forget
+
+⚠️  SAVE THIS PHRASE SECURELY
+   It's the ONLY way to restore your backups!
+
+✓ Vault created: c557eec8...`,
+  },
+  {
+    number: "02",
+    title: "Backup",
+    description:
+      "Navigate to your projects folder and run backup. Envii finds all .env files and encrypts them.",
+    code: `$ cd ~/projects
+$ envii backup
+
+✓ Found 8 projects
+
+  ✓ my-api (3 env files)
+  ✓ frontend (2 env files)  
+  ✓ backend (1 env file)
+  ...
+
+Size: 11 KB (compressed: 4.7 KB)
+
+✓ Backup complete
+  Backup ID: bkp_8f07d168dd44`,
+  },
+  {
+    number: "03",
+    title: "Restore",
+    description:
+      "On a new machine, clone your projects, then restore. Envii matches projects by fingerprint and restores files.",
+    code: `$ cd ~/projects
+$ envii restore
+
+✓ Downloaded backup from 1/18/2026
+✓ Decrypted successfully
+
+Found 8 projects in backup
+
+✓ my-api → /Users/dev/projects/my-api
+✓ frontend → /Users/dev/projects/frontend
+✓ backend → /Users/dev/projects/backend
+
+Restored 6 of 6 files`,
+  },
+];
+
+export function HowItWorks() {
+  return (
+    <section className="relative py-24 border-t border-zinc-800 bg-zinc-900/50">
+      <div className="absolute left-1/2 top-0 w-px h-full bg-gradient-to-b from-zinc-800 via-zinc-800 to-transparent hidden lg:block" />
+
+      <div className="max-w-5xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-white">
+            Three commands. That's it.
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400 max-w-2xl mx-auto">
+            No configuration files. No setup wizards. Just simple CLI commands.
+          </p>
+        </div>
+
+        <div className="space-y-16">
+          {steps.map((step, index) => (
+            <div
+              key={step.number}
+              className={`flex flex-col lg:flex-row gap-8 items-start ${
+                index % 2 === 1 ? "lg:flex-row-reverse" : ""
+              }`}
+            >
+              {/* Text content */}
+              <div className="flex-1">
+                <div className="flex items-center gap-4 mb-4">
+                  <span className="text-5xl font-bold text-zinc-800 font-mono">
+                    {step.number}
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-zinc-700 to-transparent" />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-3">
+                  {step.title}
+                </h3>
+                <p className="text-zinc-400 text-lg leading-relaxed">
+                  {step.description}
+                </p>
+              </div>
+
+              <div className="flex-1 w-full relative">
+                <div className="absolute -top-1 -left-1 w-3 h-3 border-l border-t border-emerald-500/40" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 border-r border-t border-emerald-500/40" />
+                <div className="absolute -bottom-1 -left-1 w-3 h-3 border-l border-b border-emerald-500/40" />
+                <div className="absolute -bottom-1 -right-1 w-3 h-3 border-r border-b border-emerald-500/40" />
+
+                <div className="border border-zinc-800 bg-zinc-950">
+                  <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800">
+                    <span className="text-xs text-zinc-600 font-mono">
+                      terminal
+                    </span>
+                    <div className="flex gap-2">
+                      <div className="w-2 h-2 bg-zinc-700" />
+                      <div className="w-2 h-2 bg-zinc-700" />
+                      <div className="w-2 h-2 bg-zinc-700" />
+                    </div>
+                  </div>
+                  <pre className="p-4 text-sm font-mono text-zinc-300 overflow-x-auto">
+                    <code>{step.code}</code>
+                  </pre>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+================================================
+FILE: web/src/components/Installation.tsx
+================================================
+import { useState } from "react";
+
+export function Installation() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText("npm install -g envii-cli");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <section
+      id="installation"
+      className="relative py-24 border-t border-zinc-800"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
+
+      <div className="relative max-w-3xl mx-auto px-6">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-white">
+            Get started in seconds
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400">
+            Install the CLI globally and you're ready to go.
+          </p>
+        </div>
+
+        <div className="relative">
+          <div className="absolute -top-1 -left-1 w-3 h-3 border-l border-t border-emerald-500/50" />
+          <div className="absolute -top-1 -right-1 w-3 h-3 border-r border-t border-emerald-500/50" />
+          <div className="absolute -bottom-1 -left-1 w-3 h-3 border-l border-b border-emerald-500/50" />
+          <div className="absolute -bottom-1 -right-1 w-3 h-3 border-r border-b border-emerald-500/50" />
+
+          <div className="border border-zinc-800 bg-zinc-950">
+            <div className="flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-zinc-800">
+              <span className="text-sm text-zinc-500 font-mono">npm</span>
+              <button
+                onClick={handleCopy}
+                className="text-xs text-zinc-500 hover:text-white transition-colors px-2 py-1 border border-zinc-700 hover:border-zinc-500"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+            <div className="p-4 font-mono text-lg">
+              <span className="text-zinc-500">$</span>{" "}
+              <span className="text-emerald-400">npm</span>{" "}
+              <span className="text-zinc-100">install -g envii-cli</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 grid md:grid-cols-2 gap-px bg-zinc-800">
+          <div className="bg-zinc-950 p-4">
+            <div className="text-xs text-zinc-600 mb-2 font-mono">pnpm</div>
+            <code className="text-zinc-300 font-mono text-sm">
+              pnpm add -g envii-cli
+            </code>
+          </div>
+          <div className="bg-zinc-950 p-4">
+            <div className="text-xs text-zinc-600 mb-2 font-mono">yarn</div>
+            <code className="text-zinc-300 font-mono text-sm">
+              yarn global add envii-cli
+            </code>
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <div className="flex items-center gap-4 mb-6">
+            <h3 className="text-xl font-semibold text-white">Quick Start</h3>
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+          <div className="space-y-4 text-zinc-300">
+            <div className="flex gap-4 items-start">
+              <span className="flex-shrink-0 w-6 h-6 border border-zinc-700 text-emerald-400 text-xs flex items-center justify-center font-mono">
+                1
+              </span>
+              <div>
+                <code className="text-emerald-400 font-mono">envii init</code>
+                <span className="text-zinc-500 ml-2">
+                  — Generate your recovery phrase
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4 items-start">
+              <span className="flex-shrink-0 w-6 h-6 border border-zinc-700 text-emerald-400 text-xs flex items-center justify-center font-mono">
+                2
+              </span>
+              <div>
+                <code className="text-emerald-400 font-mono">
+                  cd ~/projects && envii backup
+                </code>
+                <span className="text-zinc-500 ml-2">
+                  — Backup all your .env files
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-4 items-start">
+              <span className="flex-shrink-0 w-6 h-6 border border-zinc-700 text-emerald-400 text-xs flex items-center justify-center font-mono">
+                3
+              </span>
+              <div>
+                <code className="text-emerald-400 font-mono">
+                  envii restore
+                </code>
+                <span className="text-zinc-500 ml-2">
+                  — Restore on any machine
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-12">
+          <div className="flex items-center gap-4 mb-6">
+            <h3 className="text-xl font-semibold text-white">Commands</h3>
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+          <div className="border border-zinc-800">
+            <table className="w-full text-left">
+              <thead className="bg-zinc-900 border-b border-zinc-800">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-mono text-zinc-500 uppercase tracking-wider">
+                    Command
+                  </th>
+                  <th className="px-4 py-3 text-xs font-mono text-zinc-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-800/50">
+                <tr className="hover:bg-zinc-900/50">
+                  <td className="px-4 py-3 font-mono text-emerald-400 text-sm">
+                    envii init
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400 text-sm">
+                    Initialize with a new or existing recovery phrase
+                  </td>
+                </tr>
+                <tr className="hover:bg-zinc-900/50">
+                  <td className="px-4 py-3 font-mono text-emerald-400 text-sm">
+                    envii backup
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400 text-sm">
+                    Backup all .env files in current directory tree
+                  </td>
+                </tr>
+                <tr className="hover:bg-zinc-900/50">
+                  <td className="px-4 py-3 font-mono text-emerald-400 text-sm">
+                    envii restore
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400 text-sm">
+                    Restore .env files to matching projects
+                  </td>
+                </tr>
+                <tr className="hover:bg-zinc-900/50">
+                  <td className="px-4 py-3 font-mono text-emerald-400 text-sm">
+                    envii list
+                  </td>
+                  <td className="px-4 py-3 text-zinc-400 text-sm">
+                    List all backed up projects
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+
+================================================
+FILE: web/src/components/Security.tsx
+================================================
+import { Check, X } from "lucide-react";
+
+export function Security() {
+  return (
+    <section className="relative py-24 border-t border-zinc-800 bg-zinc-900/30">
+      <div className="absolute left-0 right-0 top-24 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
+      <div className="absolute left-0 right-0 bottom-24 h-px bg-gradient-to-r from-transparent via-zinc-700/50 to-transparent" />
+
+      <div className="relative max-w-5xl mx-auto px-6">
+        <div className="text-center mb-16">
+          <h2 className="text-3xl md:text-4xl font-bold text-white">
+            Security by design
+          </h2>
+          <p className="mt-4 text-lg text-zinc-400 max-w-2xl mx-auto">
+            Your environment variables contain sensitive data. Envii is built
+            with that in mind.
+          </p>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-px bg-zinc-700">
+          <div className="relative bg-zinc-950 p-6 border-l-2 border-l-emerald-500">
+            <div className="absolute -top-px -right-px w-4 h-4 border-r border-t border-emerald-500/50" />
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 border border-emerald-500/50 flex items-center justify-center">
+                <Check className="w-4 h-4 text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-emerald-400">
+                What's Protected
+              </h3>
+            </div>
+            <ul className="space-y-3">
+              {[
+                "Recovery phrase never leaves your device",
+                "Encryption keys derived locally",
+                "Server never sees plaintext content",
+                "All backups encrypted with AES-256-GCM",
+                "Each backup has a unique random IV",
+                "Authentication tags prevent tampering",
+                "Salt embedded in backup for portability",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3 text-zinc-300">
+                  <Check className="w-4 h-4 text-emerald-400 mt-1 flex-shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="relative bg-zinc-950 p-6 border-l-2 border-l-zinc-600">
+            <div className="absolute -top-px -right-px w-4 h-4 border-r border-t border-zinc-600/50" />
+
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-8 h-8 border border-zinc-600 flex items-center justify-center">
+                <X className="w-4 h-4 text-zinc-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-zinc-300">
+                What's NOT Protected
+              </h3>
+            </div>
+            <ul className="space-y-3">
+              {[
+                "Client-side malware on your device",
+                "Recovery phrase if you share or lose it",
+                "Physical access to an unlocked device",
+                "Screenshots or copy-paste of phrase",
+              ].map((item) => (
+                <li key={item} className="flex items-start gap-3 text-zinc-400">
+                  <X className="w-4 h-4 text-zinc-500 mt-1 flex-shrink-0" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="relative mt-12 border border-zinc-800 bg-zinc-950">
+          <div className="absolute -top-px -left-px w-4 h-4 border-l border-t border-emerald-500/50" />
+          <div className="absolute -top-px -right-px w-4 h-4 border-r border-t border-emerald-500/50" />
+          <div className="absolute -bottom-px -left-px w-4 h-4 border-l border-b border-emerald-500/50" />
+          <div className="absolute -bottom-px -right-px w-4 h-4 border-r border-b border-emerald-500/50" />
+
+          <div className="px-6 py-4 border-b border-zinc-800 bg-zinc-900">
+            <h3 className="text-lg font-semibold text-white font-mono">
+              Technical Details
+            </h3>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-px bg-zinc-800">
+            <div className="bg-zinc-950 p-4">
+              <div className="text-xs text-zinc-600 mb-1 font-mono uppercase tracking-wider">
+                Encryption
+              </div>
+              <div className="text-zinc-200 font-mono">AES-256-GCM</div>
+            </div>
+            <div className="bg-zinc-950 p-4">
+              <div className="text-xs text-zinc-600 mb-1 font-mono uppercase tracking-wider">
+                Key Derivation
+              </div>
+              <div className="text-zinc-200 font-mono">PBKDF2-SHA256</div>
+            </div>
+            <div className="bg-zinc-950 p-4">
+              <div className="text-xs text-zinc-600 mb-1 font-mono uppercase tracking-wider">
+                KDF Iterations
+              </div>
+              <div className="text-zinc-200 font-mono">600,000</div>
+            </div>
+            <div className="bg-zinc-950 p-4">
+              <div className="text-xs text-zinc-600 mb-1 font-mono uppercase tracking-wider">
+                Recovery Phrase
+              </div>
+              <div className="text-zinc-200 font-mono">BIP-39 (12 words)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+

@@ -6,9 +6,11 @@ import { deriveKey, encryptBackup, getSizes } from "../core/crypto.js";
 import { logger } from "../utils/logger.js";
 import { formatBytes } from "../utils/fs.js";
 import { inputRecoveryPhrase } from "../utils/prompts.js";
+import { ghost } from "../core/ghost.js";
 
 interface BackupOptions {
   dev?: boolean;
+  ghost?: boolean;
 }
 
 interface BackupBlob {
@@ -115,20 +117,31 @@ export async function backupCommand(options: BackupOptions): Promise<void> {
   logger.newline();
 
   // Encrypt and upload
-  const encryptSpinner = logger.spinner("Encrypting and uploading...");
+  const encryptSpinner = logger.spinner(options.ghost ? "Encrypting and applying Ghost Protocol..." : "Encrypting and uploading...");
 
   try {
-    const encryptedBlob = await encryptBackup(jsonData, key, config.salt);
+    let finalPayload = await encryptBackup(jsonData, key, config.salt);
+
+    // Apply Ghost Stego if requested
+    if (options.ghost) {
+      // Encode encrypted data into innocent text
+      const ghostText = ghost.encode(finalPayload);
+      // Convert ghost text to base64 so API accepts it as a blob
+      finalPayload = Buffer.from(ghostText).toString('base64');
+    }
 
     // Upload to API
     const api = createApiClient(config, options.dev);
-    const result = await api.uploadBackup(encryptedBlob, config.deviceId);
+    const result = await api.uploadBackup(finalPayload, config.deviceId);
 
     encryptSpinner.succeed("Backup complete");
     logger.newline();
 
     logger.success(`Backup ID: ${chalk.bold(result.id)}`);
     logger.dim(`Timestamp: ${new Date(result.createdAt).toLocaleString()}`);
+    if (options.ghost) {
+      logger.dim("👻 Ghost Protocol: ACTIVE (Backup hidden in plain sight)");
+    }
 
     if (options.dev) {
       logger.newline();

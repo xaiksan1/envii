@@ -6,7 +6,6 @@ import {
   scanDirectory,
   buildFingerprintMap,
   buildNameMap,
-  Project,
 } from "../core/scanner.js";
 import {
   deriveKey,
@@ -16,6 +15,7 @@ import {
 import { logger } from "../utils/logger.js";
 import { pathExists, writeFileContent } from "../utils/fs.js";
 import { inputRecoveryPhrase } from "../utils/prompts.js";
+import { ghost } from "../core/ghost.js";
 
 interface RestoreOptions {
   dev?: boolean;
@@ -78,9 +78,42 @@ export async function restoreCommand(options: RestoreOptions): Promise<void> {
       `Downloaded backup from ${new Date(backup.createdAt).toLocaleString()}`,
     );
 
+    let backupBlob = backup.blob;
+
+    // Check for Ghost Protocol
+    try {
+      const rawText = Buffer.from(backupBlob, 'base64').toString('utf-8');
+      
+      // Safety Check: If text contains the Unicode Replacement Character (\uFFFD),
+      // it means the buffer wasn't valid UTF-8 text (likely raw binary).
+      // Ghost text MUST be valid UTF-8.
+      const isValidUtf8 = !rawText.includes('\uFFFD');
+
+      if (isValidUtf8 && ghost.hasGhostSignal(rawText)) {
+        logger.newline();
+        logger.info("👻 Ghost Protocol detected: Extracting hidden payload...");
+        const decoded = ghost.decode(rawText);
+        if (decoded) {
+          backupBlob = decoded;
+          logger.dim("   Payload extracted from cover text.");
+        } else {
+          logger.warn("   Ghost signal detected but extraction failed. Trying raw blob...");
+        }
+      }
+    } catch (e) {
+      // Ignore errors, proceed with raw blob
+    }
+
     // Extract salt from backup and derive key
     const keySpinner = logger.spinner("Deriving encryption key...");
-    const salt = extractSaltFromBackup(backup.blob);
+    let salt: string;
+    try {
+      salt = extractSaltFromBackup(backupBlob);
+    } catch (e) {
+      keySpinner.fail("Invalid backup format");
+      process.exit(1);
+    }
+    
     const key = await deriveKey(phrase, salt);
     keySpinner.succeed("Encryption key derived");
 
@@ -89,7 +122,7 @@ export async function restoreCommand(options: RestoreOptions): Promise<void> {
     let blob: BackupBlob;
 
     try {
-      const decrypted = await decryptBackup(backup.blob, key);
+      const decrypted = await decryptBackup(backupBlob, key);
       blob = JSON.parse(decrypted) as BackupBlob;
       decryptSpinner.succeed("Decrypted successfully");
     } catch (error) {
@@ -115,7 +148,7 @@ export async function restoreCommand(options: RestoreOptions): Promise<void> {
     const nameMap = buildNameMap(localProjects);
 
     // Match projects (fingerprint first, then fallback to name)
-    const matched: Array<{
+    const matched: Array<{ 
       backupProject: BackupBlob["projects"][0];
       localPath: string;
       matchType: "fingerprint" | "name";

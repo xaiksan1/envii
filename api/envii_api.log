@@ -1,0 +1,13 @@
+$ tsx watch src/index.ts
+[dotenv@17.2.3] injecting env (2) from .env -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+Error: connect ECONNREFUSED 172.21.0.9:5432
+    at /home/ichigo/alexandria/ADAM/envii/api/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async initDb (/home/ichigo/alexandria/ADAM/envii/api/src/db/client.ts:25:18)
+    at async main (/home/ichigo/alexandria/ADAM/envii/api/src/index.ts:13:3) {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '172.21.0.9',
+  port: 5432
+}

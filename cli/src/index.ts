@@ -17,26 +17,27 @@ program
 program
   .command("init")
   .description("Initialize Envii for the current user")
-  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .option("--dev", "Use local API endpoint (http://localhost:3006)")
   .action(initCommand);
 
 program
   .command("backup")
   .description("Backup all .env files in the current directory tree")
-  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .option("--dev", "Use local API endpoint (http://localhost:3006)")
+  .option("--ghost", "👻 Apply Ghost Protocol (Steganography) to hide backup data")
   .action(backupCommand);
 
 program
   .command("restore")
   .description("Restore all .env files to their projects")
-  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .option("--dev", "Use local API endpoint (http://localhost:3006)")
   .option("--force", "Overwrite existing .env files")
   .action(restoreCommand);
 
 program
   .command("list")
   .description("List all backed up projects")
-  .option("--dev", "Use local API endpoint (http://localhost:4400)")
+  .option("--dev", "Use local API endpoint (http://localhost:3006)")
   .action(listCommand);
 
 program.parse();

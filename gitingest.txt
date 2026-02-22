@@ -1,0 +1,503 @@
+==============================================================================
+ STRAIGHT-PIPE OS V3.7 - REPOSITORY SOUVERAIN [TOP 1/1] 
+ MODULE : envii | FREQ : 3.41 MHz | ROLE : CLAUDE 
+ ARCHITECTURE : Knowledge-Augmented (KAL) & True Intelligence (TI) 
+==============================================================================
+
+--- DIRECTIVES CRITIQUES ---
+
+1. Tu es CLAUDE (HER.pdf). Ton code doit être immuable.
+2. Applique le KAL : Utilise la connaissance du domaine pour pénaliser le bruit.
+3. Vise la True Intelligence (TI) : Orchestration, pas Mimétisme.
+4. Zéro Latence (1/1). Protection absolue de Blue.
+
+--- STRUCTURE DU SYSTÈME ---
+
+.
+ -api
+ - -src
+ - - -db
+ - - -middleware
+ - - -routes
+ - - -index.ts
+ - -node_modules
+ - - -@types
+ - - -tsx
+ - - -typescript
+ - - -vitest
+ - - -@hono
+ - - -dotenv
+ - - -hono
+ - - -uuid
+ - - -undici-types
+ - - -get-tsconfig
+ - - -@vitest
+ - - -acorn-walk
+ - - -chai
+ - - -debug
+ - - -execa
+ - - -local-pkg
+ - - -magic-string
+ - - -pathe
+ - - -picocolors
+ - - -std-env
+ - - -strip-literal
+ - - -tinybench
+ - - -tinypool
+ - - -vite
+ - - -vite-node
+ - - -why-is-node-running
+ - - -resolve-pkg-maps
+ - - -p-limit
+ - - -pretty-format
+ - - -tinyspy
+ - - -diff-sequences
+ - - -estree-walker
+ - - -loupe
+ - - -acorn
+ - - -assertion-error
+ - - -check-error
+ - - -deep-eql
+ - - -get-func-name
+ - - -pathval
+ - - -type-detect
+ - - -ms
+ - - -cross-spawn
+ - - -get-stream
+ - - -human-signals
+ - - -is-stream
+ - - -merge-stream
+ - - -npm-run-path
+ - - -onetime
+ - - -signal-exit
+ - - -strip-final-newline
+ - - -mlly
+ - - -pkg-types
+ - - -@jridgewell
+ - - -js-tokens
+ - - -postcss
+ - - -rollup
+ - - -cac
+ - - -siginfo
+ - - -stackback
+ - - -split2
+ - - -xtend
+ - - -yocto-queue
+ - - -@jest
+ - - -ansi-styles
+ - - -react-is
+ - - -path-key
+ - - -shebang-command
+ - - -which
+ - - -mimic-fn
+ - - -ufo
+ - - -confbox
+ - - -nanoid
+ - - -source-map-js
+ - - -@rollup
+ - - -@sinclair
+ - - -shebang-regex
+ - - -isexe
+ - - -pg
+ - - -pg-types
+ - - -pg-protocol
+ - - -esbuild
+ - - -pgpass
+ - - -postgres-date
+ - - -postgres-interval
+ - - -pg-connection-string
+ - - -pg-pool
+ - - -postgres-bytea
+ - - -pg-cloudflare
+ - - -postgres-array
+ - - -pg-int8
+ - - -@esbuild
+ - -bun.lock
+ - -package-lock.json
+ - -package.json
+ - -tsconfig.json
+ - -envii_api.log
+ -cli
+ - -src
+ - - -commands
+ - - -core
+ - - -utils
+ - - -index.ts
+ - -node_modules
+ - - -@types
+ - - -typescript
+ - - -chalk
+ - - -commander
+ - - -ora
+ - - -uuid
+ - - -rxjs
+ - - -undici-types
+ - - -acorn-walk
+ - - -chai
+ - - -debug
+ - - -execa
+ - - -magic-string
+ - - -picocolors
+ - - -std-env
+ - - -inquirer
+ - - -argon2
+ - - -bip39
+ - - -vitest
+ - - -tinybench
+ - - -why-is-node-running
+ - - -@mapbox
+ - - -@noble
+ - - -ansi-escapes
+ - - -cli-width
+ - - -mute-stream
+ - - -run-async
+ - - -string-width
+ - - -strip-ansi
+ - - -wrap-ansi
+ - - -yoctocolors-cjs
+ - - -cli-cursor
+ - - -cli-spinners
+ - - -is-interactive
+ - - -is-unicode-supported
+ - - -log-symbols
+ - - -stdin-discarder
+ - - -tslib
+ - - -estree-walker
+ - - -loupe
+ - - -local-pkg
+ - - -pathe
+ - - -@vitest
+ - - -acorn
+ - - -assertion-error
+ - - -check-error
+ - - -deep-eql
+ - - -get-func-name
+ - - -pathval
+ - - -type-detect
+ - - -ms
+ - - -cross-spawn
+ - - -get-stream
+ - - -human-signals
+ - - -is-stream
+ - - -merge-stream
+ - - -npm-run-path
+ - - -strip-final-newline
+ - - -@jridgewell
+ - - -postcss
+ - - -siginfo
+ - - -stackback
+ - - -detect-libc
+ - - -https-proxy-agent
+ - - -make-dir
+ - - -node-fetch
+ - - -nopt
+ - - -strip-literal
+ - - -@inquirer
+ - - -npmlog
+ - - -rimraf
+ - - -semver
+ - - -tar
+ - - -iconv-lite
+ - - -type-fest
+ - - -bl
+ - - -wcwidth
+ - - -emoji-regex
+ - - -is-fullwidth-code-point
+ - - -ansi-regex
+ - - -restore-cursor
+ - - -get-east-asian-width
+ - - -p-limit
+ - - -diff-sequences
+ - - -pretty-format
+ - - -tinyspy
+ - - -tinypool
+ - - -path-key
+ - - -shebang-command
+ - - -which
+ - - -mimic-fn
+ - - -nanoid
+ - - -source-map-js
+ - - -agent-base
+ - - -whatwg-url
+ - - -js-tokens
+ - - -@phc
+ - - -esbuild
+ - - -pkg-types
+ - - -mlly
+ - - -cac
+ - - -node-addon-api
+ - - -vite-node
+ - - -abbrev
+ - - -are-we-there-yet
+ - - -console-control-strings
+ - - -gauge
+ - - -set-blocking
+ - - -glob
+ - - -chownr
+ - - -fs-minipass
+ - - -minipass
+ - - -minizlib
+ - - -mkdirp
+ - - -yallist
+ - - -safer-buffer
+ - - -buffer
+ - - -inherits
+ - - -readable-stream
+ - - -chardet
+ - - -supports-color
+ - - -defaults
+ - - -color-convert
+ - - -shebang-regex
+ - - -isexe
+ - - -tr46
+ - - -webidl-conversions
+ - - -delegates
+ - - -aproba
+ - - -color-support
+ - - -has-unicode
+ - - -object-assign
+ - - -wide-align
+ - - -fs.realpath
+ - - -inflight
+ - - -rollup
+ - - -minimatch
+ - - -once
+ - - -path-is-absolute
+ - - -base64-js
+ - - -ieee754
+ - - -string_decoder
+ - - -util-deprecate
+ - - -has-flag
+ - - -clone
+ - - -color-name
+ - - -mimic-function
+ - - -wrappy
+ - - -brace-expansion
+ - - -safe-buffer
+ - - -balanced-match
+ - - -concat-map
+ - - -react-is
+ - - -yocto-queue
+ - - -ufo
+ - - -@jest
+ - - -confbox
+ - - -vite
+ - - -@sinclair
+ - - -@rollup
+ - - -@esbuild
+ - - -onetime
+ - - -signal-exit
+ - - -ansi-styles
+ - -dist
+ - - -utils
+ - - -core
+ - - -commands
+ - - -index.js.map
+ - - -index.js
+ - - -index.d.ts.map
+ - - -index.d.ts
+ - -tests
+ - - -ghost.test.ts
+ - -bun.lock
+ - -package-lock.json
+ - -package.json
+ - -tsconfig.json
+ -web
+ - -public
+ - - -logo.png
+ - -src
+ - - -assets
+ - - -components
+ - - -index.css
+ - - -App.tsx
+ - - -main.tsx
+ - - -SI6_Dashboard.tsx
+ - -node_modules
+ - - -@eslint
+ - - -@types
+ - - -eslint
+ - - -eslint-plugin-react-hooks
+ - - -eslint-plugin-react-refresh
+ - - -globals
+ - - -tailwindcss
+ - - -typescript
+ - - -typescript-eslint
+ - - -vite
+ - - -lucide-react
+ - - -react
+ - - -react-dom
+ - - -recharts
+ - - -@tailwindcss
+ - - -undici-types
+ - - -csstype
+ - - -@babel
+ - - -react-refresh
+ - - -@eslint-community
+ - - -@vitejs
+ - - -@humanfs
+ - - -@humanwhocodes
+ - - -ajv
+ - - -chalk
+ - - -cross-spawn
+ - - -debug
+ - - -escape-string-regexp
+ - - -eslint-scope
+ - - -eslint-visitor-keys
+ - - -espree
+ - - -esquery
+ - - -esutils
+ - - -fast-deep-equal
+ - - -file-entry-cache
+ - - -find-up
+ - - -glob-parent
+ - - -ignore
+ - - -imurmurhash
+ - - -is-glob
+ - - -json-stable-stringify-without-jsonify
+ - - -lodash.merge
+ - - -minimatch
+ - - -natural-compare
+ - - -optionator
+ - - -jiti
+ - - -hermes-parser
+ - - -zod
+ - - -zod-validation-error
+ - - -@typescript-eslint
+ - - -esbuild
+ - - -fdir
+ - - -picomatch
+ - - -postcss
+ - - -rollup
+ - - -tinyglobby
+ - - -lightningcss
+ - - -@opentelemetry
+ - - -web-vitals
+ - - -scheduler
+ - - -@reduxjs
+ - - -clsx
+ - - -decimal.js-light
+ - - -@rolldown
+ - - -es-toolkit
+ - - -eventemitter3
+ - - -immer
+ - - -react-redux
+ - - -reselect
+ - - -tiny-invariant
+ - - -use-sync-external-store
+ - - -victory-vendor
+ - - -react-is
+ - - -@jridgewell
+ - - -magic-string
+ - - -source-map-js
+ - - -convert-source-map
+ - - -gensync
+ - - -json5
+ - - -semver
+ - - -import-fresh
+ - - -js-yaml
+ - - -strip-json-comments
+ - - -levn
+ - - -fast-json-stable-stringify
+ - - -json-schema-traverse
+ - - -uri-js
+ - - -ansi-styles
+ - - -supports-color
+ - - -path-key
+ - - -shebang-command
+ - - -which
+ - - -ms
+ - - -esrecurse
+ - - -fflate
+ - - -enhanced-resolve
+ - - -estraverse
+ - - -acorn
+ - - -acorn-jsx
+ - - -flat-cache
+ - - -locate-path
+ - - -path-exists
+ - - -is-extglob
+ - - -brace-expansion
+ - - -deep-is
+ - - -fast-levenshtein
+ - - -prelude-ls
+ - - -type-check
+ - - -word-wrap
+ - - -hermes-estree
+ - - -ts-api-utils
+ - - -@esbuild
+ - - -nanoid
+ - - -picocolors
+ - - -@rollup
+ - - -lightningcss-linux-x64-gnu
+ - - -lightningcss-linux-x64-musl
+ - - -detect-libc
+ - - -dompurify
+ - - -@posthog
+ - - -preact
+ - - -@standard-schema
+ - - -redux
+ - - -redux-thunk
+ - - -d3-array
+ - - -d3-ease
+ - - -d3-interpolate
+ - - -d3-scale
+ - - -d3-shape
+ - - -d3-time
+ - - -d3-timer
+ - - -graceful-fs
+ - - -tapable
+ - - -js-tokens
+ - - -jsesc
+ - - -browserslist
+ - - -lru-cache
+ - - -parent-module
+ - - -resolve-from
+ - - -argparse
+ - - -punycode
+ - - -color-convert
+ - - -has-flag
+ - - -shebang-regex
+ - - -isexe
+ - - -flatted
+ - - -keyv
+ - - -p-locate
+ - - -balanced-match
+ - - -concat-map
+ - - -protobufjs
+ - - -internmap
+ - - -d3-color
+ - - -d3-format
+ - - -d3-time-format
+ - - -d3-path
+ - - -caniuse-lite
+ - - -node-releases
+ - - -query-selector-shadow-dom
+ - - -update-browserslist-db
+ - - -yallist
+ - - -callsites
+ - - -color-name
+ - - -json-buffer
+ - - -p-limit
+ - - -@protobufjs
+ - - -long
+ - - -escalade
+ - - -yocto-queue
+ - - -baseline-browser-mapping
+ - - -electron-to-chromium
+ - - -posthog-js
+ - - -core-js
+ - - -react-icons
+ - -README.md
+ - -eslint.config.js
+ - -index.html
+ - -vite.config.ts
+ - -bun.lock
+ - -package-lock.json
+ - -package.json
+ - -tsconfig.app.json
+ - -tsconfig.json
+ - -tsconfig.node.json
+ -README.md
+ -CLAUDE.md
+ -xaiksan1-envii-8a5edab282632443.txt
+ -gitingest.txt

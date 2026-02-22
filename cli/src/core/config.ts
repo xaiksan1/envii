@@ -7,7 +7,7 @@ const CONFIG_DIR = path.join(os.homedir(), '.envii');
 const CONFIG_FILE = path.join(CONFIG_DIR, 'config.json');
 
 const PROD_API_URL = 'https://api.envii.dev';
-const DEV_API_URL = 'http://localhost:4400';
+const DEV_API_URL = 'http://localhost:3006';
 
 export interface EnviiConfig {
   vaultId: string;

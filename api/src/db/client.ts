@@ -16,9 +16,9 @@ export async function initDb(): Promise<pg.Pool> {
 
   pool = new pg.Pool({
     connectionString: DATABASE_URL,
-    ssl: {
+    ssl: process.env.NODE_ENV === "production" ? {
       rejectUnauthorized: false,
-    },
+    } : false,
   });
 
   // Test connection
