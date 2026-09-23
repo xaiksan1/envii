@@ -35,8 +35,8 @@ const SKIP_DIRS = new Set([
   ".cargo",
 ]);
 
-// Environment file patterns - matches .env and .env.*
-const ENV_PATTERNS = [/^\.env$/, /^\.env\..+$/];
+// Environment file patterns - matches .env, .env.* and name.env (ex. bifrost-admin.env)
+const ENV_PATTERNS = [/^\.env$/, /^\.env\..+$/, /^[^.].*\.env$/];
 
 export interface EnvFile {
   filename: string;

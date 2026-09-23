@@ -74,9 +74,13 @@ Endpoints:
   GET  /backups        List all backups
 `);
 
+  // Écoute locale par défaut : les copies chiffrées ne quittent pas la machine.
+  const hostname = process.env.HOST || "127.0.0.1";
+
   serve({
     fetch: app.fetch,
     port,
+    hostname,
   });
 }
 
